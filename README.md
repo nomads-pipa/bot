@@ -10,17 +10,15 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 
 - **Automatic Keyword Responses**: The bot monitors messages in a specified group and responds based on predefined keywords.
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
-- **Group ID Auto-Detection**: Dynamically fetches the group ID based on the group name (`Pipa Digital Nomads`).
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
-- **Multi-Device Authentication**: Uses Baileys' multi-file authentication for seamless login management.
 
 ## Infrastructure Environment
 
 The bot is running on a Google Cloud VM with the following specifications:
 
 - **Instance Type**: e2-micro (2 vCPUs, 1 GB Memory)
-- **Operating System**: Ubuntu Server 24.04
-  **Running environment:**
+- **Operating System**: Ubuntu Server 24.04  
+- **Running environment:**
 - **Node.js Version**: v18.19.1
 - **Process Manager**: PM2 v5.4.3
 - **Project Directory**: `/home/joao_mezari/dn-pipa-whatsapp-bot`
