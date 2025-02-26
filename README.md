@@ -10,13 +10,30 @@ Pipa DN Bot (`pipa-dn-bot.js`) is a WhatsApp bot built using the Baileys library
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
 - **Multi-Device Authentication**: Uses Baileys' multi-file authentication for seamless login management.
 
+## Infrastructure Environment
+
+The bot is running on a Google Cloud VM with the following specifications:
+
+- **Instance Type**: e2-micro (2 vCPUs, 1 GB Memory)
+- **Operating System**: Ubuntu Server 24.04
+  **Running environment:**
+- **Node.js Version**: v18.19.1
+- **Process Manager**: PM2 v5.4.3
+- **Project Directory**: `/home/joao_mezari/dn-pipa-whatsapp-bot`
+- **Dependencies**:
+  - `@whiskeysockets/baileys@6.7.13`
+  - `moment-timezone@0.5.47`
+  - `qrcode-terminal@0.12.0`
+  - `whatsapp-web.js@1.26.0`
+
 ## Installation
 
 ### Prerequisites
 
 Ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (LTS version recommended)
+- [Node.js](https://nodejs.org/) 
 - [npm](https://www.npmjs.com/) (comes with Node.js)
+- [pm2] (https://pm2.keymetrics.io/) 
 
 ### Setup
 
