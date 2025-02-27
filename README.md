@@ -11,6 +11,7 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 
 - **Automatic Keyword Responses**: The bot monitors messages in a specified group and responds based on predefined keywords.
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
+- **UV Index**: Fetches on !uv command the current UV index for the hour 
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
 
 ## Infrastructure Environment
