@@ -20,6 +20,69 @@ function loadKeywordResponses() {
 
 let keywordResponseMap = loadKeywordResponses();
 
+async function getUVIndex() {
+    try {
+        const response = await axios.get('https://currentuvindex.com/api/v1/uvi', {
+            params: {
+                latitude: -6.233,
+                longitude: -35.050
+            }
+        });
+        
+        if (response.data && response.data.ok) {
+            const currentUVI = response.data.now.uvi;
+            const location = `Pipa (${response.data.latitude}, ${response.data.longitude})`;
+            const time = moment(response.data.now.time).tz('America/Sao_Paulo').format('HH:mm');
+            
+            let uvCategory, emoji;
+            
+            if (currentUVI === 0) {
+                uvCategory = "No risk";
+                emoji = "✅";
+            } else if (currentUVI <= 2) {
+                uvCategory = "Low risk";
+                emoji = "✅";
+            } else if (currentUVI <= 5) {
+                uvCategory = "Moderate risk";
+                emoji = "⚠️";
+            } else if (currentUVI <= 7) {
+                uvCategory = "High risk";
+                emoji = "🔴";
+            } else if (currentUVI <= 10) {
+                uvCategory = "Very high risk";
+                emoji = "⛔";
+            } else {
+                uvCategory = "Extreme risk";
+                emoji = "☣️";
+            }
+            
+            let message = `*UV Index for ${location} at ${time}*\n\n`;
+            message += `Current UV Index: *${currentUVI}* ${emoji}\n`;
+            message += `Risk Level: *${uvCategory}*\n\n`;
+            
+            // Add recommendation based on UV level
+            if (currentUVI > 3) {
+                message += "*Recommendations:*\n";
+                message += "• Wear sunscreen (min. SPF 30)\n";
+                message += "• Seek shade during midday hours\n";
+                message += "• Wear protective clothing, hat, and sunglasses\n";
+            } else if (currentUVI > 0) {
+                message += "*Recommendations:*\n";
+                message += "• Wear sunscreen if spending extended time outdoors\n";
+            } else {
+                message += "No sun protection required at this time.";
+            }
+            
+            return message;
+        } else {
+            return "Could not retrieve UV index data. Please try again later.";
+        }
+    } catch (error) {
+        console.error('Error fetching UV index:', error);
+        return "Error fetching UV index data. Please try again later.";
+    }
+}
+
 async function sendTideDataOnce(sock, targetGroupId) {
     const now = moment().add(1, 'days');
     const startDate = now.clone().startOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
@@ -120,6 +183,14 @@ async function startBot() {
 
                             if (messageContent) {
                                 console.log(`📩 Received message in group "${pipaDigitalNomadsGroupId}": ${messageContent}`);
+
+                                // Check for UV command
+                                if (messageContent.trim().toLowerCase() === '!uv' || messageContent.trim().toUpperCase() === '!UV') {
+                                    console.log('🔍 UV command detected! Fetching UV index...');
+                                    const uvMessage = await getUVIndex();
+                                    await sock.sendMessage(pipaDigitalNomadsGroupId, { text: uvMessage });
+                                    continue; // Skip keyword check for this message
+                                }
 
                                 // Check for keyword groups and send the appropriate response (using regex)
                                 for (const { keywords, response } of keywordResponseMap) {
