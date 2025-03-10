@@ -28,14 +28,14 @@ async function getUVIndex() {
                 longitude: -35.050
             }
         });
-        
+
         if (response.data && response.data.ok) {
             const currentUVI = response.data.now.uvi;
             const location = `Pipa (${response.data.latitude}, ${response.data.longitude})`;
             const time = moment(response.data.now.time).tz('America/Sao_Paulo').format('HH:mm');
-            
+
             let uvCategory, emoji;
-            
+
             if (currentUVI === 0) {
                 uvCategory = "No risk";
                 emoji = "✅";
@@ -55,11 +55,11 @@ async function getUVIndex() {
                 uvCategory = "Extreme risk";
                 emoji = "☣️";
             }
-            
+
             let message = `*UV Index for ${location} at ${time}*\n\n`;
             message += `Current UV Index: *${currentUVI}* ${emoji}\n`;
             message += `Risk Level: *${uvCategory}*\n\n`;
-            
+
             // Add recommendation based on UV level
             if (currentUVI > 3) {
                 message += "*Recommendations:*\n";
@@ -72,7 +72,7 @@ async function getUVIndex() {
             } else {
                 message += "No sun protection required at this time.";
             }
-            
+
             return message;
         } else {
             return "Could not retrieve UV index data. Please try again later.";
@@ -139,6 +139,101 @@ function scheduleTideData(sock, targetGroupId) {
     }, 60 * 1000); // Check every minute
 }
 
+async function getAstronomyData() {
+    const now = moment().add(1, 'days');
+    const date = now.clone().format('YYYY-MM-DD');
+    
+    const lat = -6.228056;
+    const lng = -35.045833;
+
+    const url = `https://api.stormglass.io/v2/astronomy/point?lat=${lat}&lng=${lng}&date=${date}`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                'Authorization': '46d9689e-effc-11ef-8c11-0242ac130003-46d96920-effc-11ef-8c11-0242ac130003', // Replace with your API key
+            },
+        });
+
+        const astronomyData = response.data.data;
+        const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
+
+        let message = `*☀️🌙✨ Astronomy Data for Praia de Pipa - ${dateFormatted} ✨*\n\n`;
+        message += `_This is approximate data, gathered using StormGlass API._\n\n`;
+
+        // Sunrise and sunset
+        if (astronomyData[0].sunrise && astronomyData[0].sunset) {
+            const sunriseTime = moment.utc(astronomyData[0].sunrise).tz('America/Sao_Paulo').format('HH:mm');
+            const sunsetTime = moment.utc(astronomyData[0].sunset).tz('America/Sao_Paulo').format('HH:mm');
+            
+            message += `*Sun:*\n`;
+            message += `🌅 Sunrise: ${sunriseTime}\n`;
+            message += `🌇 Sunset: ${sunsetTime}\n\n`;
+        }
+
+        // Moonrise, moonset, and moon phase
+        if (astronomyData[0].moonrise && astronomyData[0].moonPhase) {
+            const moonriseTime = moment.utc(astronomyData[0].moonrise).tz('America/Sao_Paulo').format('HH:mm');
+            
+            // Add moonset if available
+            let moonsetInfo = "";
+            if (astronomyData[0].moonset) {
+                const moonsetTime = moment.utc(astronomyData[0].moonset).tz('America/Sao_Paulo').format('HH:mm');
+                moonsetInfo = `🌃 Moonset: ${moonsetTime}\n`;
+            }
+            
+            // Get moon phase directly from the API
+            const moonPhaseText = astronomyData[0].moonPhase.current.text;
+            
+            message += `*Moon:*\n`;
+            message += `🌜 Moonrise: ${moonriseTime}\n`;
+            message += moonsetInfo;
+            message += `🌙 Moon Phase: ${moonPhaseText}\n`;
+            
+            // Add illumination if available
+            if (astronomyData[0].moonPhase.current.illumination) {
+                const illumination = (astronomyData[0].moonPhase.current.illumination * 100).toFixed(0);
+                message += `✨ Illumination: ${illumination}%\n`;
+            }
+        }
+
+        return message;
+    } catch (error) {
+        console.error('❌ Error fetching astronomy data:', error);
+        if (error.response) {
+            console.log(error.response.data);
+        }
+        return "Could not retrieve astronomy data. Please try again later.";
+    }
+}
+
+async function sendAstronomyDataOnce(sock, targetGroupId) {
+    try {
+        const astronomyMessage = await getAstronomyData();
+        await sock.sendMessage(targetGroupId, { text: astronomyMessage });
+        console.log('✅ Astronomy data sent to group "Pipa Digital Nomads"');
+    } catch (error) {
+        console.error('❌ Error sending astronomy data:', error);
+    }
+}
+
+// Schedule astronomy data message daily at 19:30 São Paulo time
+function scheduleAstronomyData(sock, targetGroupId) {
+    let lastSentDate = null;
+
+    setInterval(async () => {
+        const now = moment().tz('America/Sao_Paulo');
+        const currentTime = now.format('HH:mm');
+        const currentDate = now.format('YYYY-MM-DD');
+
+        if (currentTime === '19:30' && lastSentDate !== currentDate) {
+            console.log("📅 Sending scheduled astronomy data...");
+            await sendAstronomyDataOnce(sock, targetGroupId);
+            lastSentDate = currentDate; // Prevent duplicate sends
+        }
+    }, 60 * 1000); // Check every minute
+}
+
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
     const logger = pino({ level: 'info' });
@@ -170,9 +265,10 @@ async function startBot() {
             let pipaDigitalNomadsGroupId = await getGroupId("Pipa Digital Nomads");
             console.log(`Group ID for "Pipa Digital Nomads": ${pipaDigitalNomadsGroupId}`);
 
-            // Schedule daily tide data message
+            // Schedule daily tide data and astronomy data messages
             if (pipaDigitalNomadsGroupId) {
                 scheduleTideData(sock, pipaDigitalNomadsGroupId);
+                scheduleAstronomyData(sock, pipaDigitalNomadsGroupId); // Added astronomy data scheduling
             }
 
             sock.ev.on('messages.upsert', async (msg) => {
@@ -189,6 +285,14 @@ async function startBot() {
                                     console.log('🔍 UV command detected! Fetching UV index...');
                                     const uvMessage = await getUVIndex();
                                     await sock.sendMessage(pipaDigitalNomadsGroupId, { text: uvMessage });
+                                    continue; // Skip keyword check for this message
+                                }
+                                
+                                // Check for astronomy command
+                                if (messageContent.trim().toLowerCase() === '!astro' || messageContent.trim().toUpperCase() === '!ASTRO') {
+                                    console.log('🔍 Astronomy command detected! Fetching astronomy data...');
+                                    const astronomyMessage = await getAstronomyData();
+                                    await sock.sendMessage(pipaDigitalNomadsGroupId, { text: astronomyMessage });
                                     continue; // Skip keyword check for this message
                                 }
 
