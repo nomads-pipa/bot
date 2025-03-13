@@ -1,0 +1,70 @@
+[
+    {
+        "keywords": ["house renting", "house rental"],
+        "response": "Looking for a place to call home in Pipa? 🏡🏠 Check out our house rental guide: [https://docs.google.com/document/d/12cNpzVMEKcWli3mr7anB3GEoVyZA46gUSvjI5qkO_EQ/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["car rental", "car renting", "rent a car"],
+        "response": "Ready to explore Pipa on your own terms? 🚗💨 Our car rental guide can help you hit the road: [https://docs.google.com/document/d/15cI5q5h_qebVGLLvOeQ1u57_1LLFdfQ163W5xQgN8ZA/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["emergency number"],
+        "response": "Stay safe in Pipa! 🚨🚑 Here's a handy guide with emergency numbers: [https://docs.google.com/document/d/1M8XQBtICxPwpdwI6tFlEhjvKC8TakCY7jg95Sxg5a1w/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["taxi", "mototaxi"],
+        "response": "Need a quick ride? 🚕🏍️ Check out our guide for MotoTaxi/Taxi/Transfer options: [https://docs.google.com/document/d/1rEeWK6vrrQlXlWwHHW-3IQsr7cun-XznkyPhGra5qEA/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["bus", "van", "transport", "bus transport", "van transport"],
+        "response": "Planning to travel around by bus or van? 🚌🚐 Here's a guide with all the info you need: [https://docs.google.com/document/d/1FKv3FqdYLfiVN4ctm42N_eTQcGPQwyMbYL4uZQ9VLtQ/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["places to work", "coworking", "work space", "cowork", "place to work", "do some work"],
+        "response": "Looking for a great place to work in Pipa? 💻🌴 We've got you covered! Check out our guide: [https://docs.google.com/document/d/1zUC12DQOt_cBie-MzJ9OJB6k8E6Kh_gopnrIrWG6qS8/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["sim card", "4G", "data sim", "local SIM"],
+        "response": "Stay connected with a local SIM card! 📱📶 Here's a guide to help you get set up: [https://docs.google.com/document/d/18f1ztJzEUv1dw0QxOJCT6iIe21D4wXYixrkgAh175Vg/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["visa", "digital nomad visa"],
+        "response": "Need help navigating visa requirements? 🛂🌍 Check out our comprehensive guide: [https://docs.google.com/document/d/152hwPUgFkQ12MeQtOjENb_GUTNoKvjApQGJl-8Wz3Gw/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["gym", "crossfit"],
+        "response": "Want to stay fit while in Pipa? 💪🏋️ Check out our guide for gyms and Crossfit boxes: [https://docs.google.com/document/d/1gPJroYkDUaYnuFAUm7Prg-s1mR0lEnBtWqRdrKTzu7A/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["beach tennis"],
+        "response": "Ready to hit the sand and play some beach tennis? 🏖️🎾 Check out our guide: [https://docs.google.com/document/d/12E7UVMro9OzccqmaKdOyp45YID9a11mGsNHzMxTf5gQ/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["yecgaa"],
+        "response": "Craving some delicious food? 😋🍽️ Explore Pipa's vibrant restaurant scene with our guide: [https://docs.google.com/document/d/1cmu5YrAiTeH_ofy2C2eMmW0CGqH7RRg_owS4FzC_Ono/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["group rules", "guidelines"],
+        "response": "Staying in line with the group rules is important. 📜✅ Check out our guide: [https://docs.google.com/document/d/1Mywkwu2-SFeOHmkSmV47rXj1YUZnaSMbdojYufXly5o/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["drive", "google drive"],
+        "response": "Need access to our shared drive with helpful resources? 📂🔗 Here you go: [https://tinyurl.com/PipaDNDrive]"
+    },
+    {
+        "keywords": ["my name is"],
+        "response": "Welcome! 👋🌴 We're glad you're here. You can find lots of helpful information in our shared drive: [https://tinyurl.com/PipaDNDrive]"
+    },
+    {
+        "keywords": ["bryce"],
+        "response": "👨‍🦲"
+    },
+    {
+        "keywords": ["quadbike", "buggy", "buggy tour", "quadbike tour"],
+        "response": "Ready for an off-road adventure? 🏍️🏞️ Check out our guide for quadbike and buggy tours: [https://docs.google.com/document/d/1pY0owHFmlbml0G-SLAYXdZqHBnY_c5R1YcEV1yn-1S4/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["smartphone repair", "laptop repair", "phone repair", "damaged phone"],
+        "response": "Ouch! For smartphone/laptop repairs: [https://docs.google.com/document/d/1ZP1ljPevdxiVabTeA0H2_Gcz0qGAf15V79muztG5R-k/edit?usp=drive_link]"
+    }
+]

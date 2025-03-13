@@ -1,0 +1,33 @@
+Basic Application Management:
+
+pm2 start <app_name_or_file> --name "<app_name>": Starts an application. Use --name to give it a specific name. If you don't use --name, the filename is used as the name.
+pm2 list: Lists all running applications managed by PM2.
+pm2 stop <app_name_or_id>: Stops a specific application (use the name or ID from pm2 list).
+pm2 restart <app_name_or_id>: Restarts a specific application.
+pm2 delete <app_name_or_id>: Deletes a specific application from PM2's process list.
+pm2 reload <app_name_or_id>: Gracefully reloads an application (useful for zero-downtime deployments).
+pm2 monit: Opens a simple monitoring dashboard in your terminal.
+pm2 describe <app_name_or_id>: Provides detailed information about an application.
+Log Management:
+
+pm2 logs <app_name_or_id>: Shows logs for a specific application.
+pm2 flush <app_name_or_id>: Clears the logs for a specific application.
+pm2 reset <app_name_or_id>: Resets the log file for a specific application.
+Startup Management (Crucial for production):
+
+pm2 startup <platform>: Generates a startup script for PM2 (e.g., pm2 startup systemd, pm2 startup upstart, pm2 startup darwin). Run the command that PM2 provides after running pm2 startup.
+pm2 save: Saves the current process list so PM2 can restore it on reboot. Run this after starting your apps and after running pm2 startup.
+pm2 resurrect: Restores the process list saved with pm2 save.
+Ecosystem Files (For complex apps):
+
+pm2 start ecosystem.config.js: Starts applications defined in an ecosystem file.
+Other Useful Commands:
+
+pm2 kill: Kills the PM2 daemon.
+pm2 update: Updates PM2.
+Key things to remember:
+
+Application Names: Use descriptive names when starting your apps (pm2 start ... --name "my-app") to make management easier.
+Startup on Reboot: The pm2 startup and pm2 save commands are essential to make sure your applications start automatically when your server restarts.
+Ecosystem Files: Use ecosystem files (ecosystem.config.js or ecosystem.config.yaml) for more complex application setups (environment variables, multiple instances, etc.).
+This list covers the most common and important PM2 commands you'll likely use.  For more advanced options, refer to the official PM2 documentation: https://pm2.io/doc/en/runtime/reference/pm2-cli
