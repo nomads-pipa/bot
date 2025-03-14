@@ -17,7 +17,7 @@ async function getAstronomyData() {
     try {
         const response = await axios.get(url, {
             headers: {
-                'Authorization': '46d9689e-effc-11ef-8c11-0242ac130003-46d96920-effc-11ef-8c11-0242ac130003',
+                'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
             },
         });
 

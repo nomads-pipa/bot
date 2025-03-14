@@ -5,6 +5,7 @@ const moment = require('moment-timezone');
 
 const { getUVIndex } = require('./commands/uv');
 const { getAstronomyData } = require('./commands/astro');
+const { getWaveData } = require('./commands/wave');
 const { loadKeywordResponses } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 
@@ -101,6 +102,17 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                             console.log('🔍 Astronomy command detected! Fetching astronomy data...');
                             const astronomyMessage = await getAstronomyData();
                             await sock.sendMessage(pipaDigitalNomadsGroupId, { text: astronomyMessage });
+                            continue; // Skip keyword check for this message
+                        }
+
+                        // Check for surf command
+                        if (messageContent.trim().toLowerCase() === '!surf' || 
+                            messageContent.trim().toUpperCase() === '!SURF' || 
+                            messageContent.trim().toLowerCase() === '!wave' || 
+                            messageContent.trim().toUpperCase() === '!WAVE') {
+                            console.log('🔍 Surf command detected! Fetching wave data...');
+                            const waveMessage = await getWaveData();
+                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: waveMessage });
                             continue; // Skip keyword check for this message
                         }
 
