@@ -6,6 +6,7 @@ const moment = require('moment-timezone');
 const { getUVIndex } = require('./commands/uv');
 const { getAstronomyData } = require('./commands/astro');
 const { getWaveData } = require('./commands/wave');
+const { getRainForecast } = require('./commands/rain');
 const { loadKeywordResponses } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 
@@ -113,6 +114,15 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                             console.log('🔍 Surf command detected! Fetching wave data...');
                             const waveMessage = await getWaveData();
                             await sock.sendMessage(pipaDigitalNomadsGroupId, { text: waveMessage });
+                            continue; // Skip keyword check for this message
+                        }
+                        
+                        // Check for rain command
+                        if (messageContent.trim().toLowerCase() === '!rain' || 
+                            messageContent.trim().toUpperCase() === '!RAIN') {
+                            console.log('🔍 Rain command detected! Fetching rain forecast...');
+                            const rainMessage = await getRainForecast();
+                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: rainMessage });
                             continue; // Skip keyword check for this message
                         }
 
