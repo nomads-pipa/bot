@@ -13,6 +13,7 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
 - **Daily Astronomical Data Updates**: Fetches and sends sun/moon rising and seting times
 - **Daily Surfing Conditions**: Fetches and sends surfing conditions for Praia do Madeiro
+- **Daily Rain Forecast**: Fetches and sends alert for the day in case of rain forecast
 - **UV Index**: Fetches on !uv command the current UV index for the hour 
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
 
@@ -21,6 +22,7 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - !surf
 - !uv
 - !astro
+- !rain
 
 ## Infrastructure Environment
 
@@ -86,11 +88,6 @@ The bot responds to predefined keywords stored in `keywords.json`. Ensure this f
 ]
 ```
 
-### Tide and Astronomical Data Scheduling
-
-- The bot fetches and sends tide an astronomical data daily at **19:30 São Paulo time**.
-- The tide data API is sourced from [Storm Glass](https://stormglass.io/).
-
 ## How It Works
 
 1. The bot authenticates using multi-file authentication.
@@ -98,7 +95,7 @@ The bot responds to predefined keywords stored in `keywords.json`. Ensure this f
 3. It retrieves the group ID for `Pipa Digital Nomads`.
 4. It listens for new messages in the group and checks for keyword matches.
 5. If a keyword is detected, it sends the corresponding response.
-6. It schedules and sends tide data daily at 19:30 São Paulo time.
+6. It schedules and alerts (check features)..
 7. If disconnected, it attempts to reconnect automatically.
 
 ## Logging & Debugging
