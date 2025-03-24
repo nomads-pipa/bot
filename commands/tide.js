@@ -26,7 +26,7 @@ async function getTideData() {
         const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
 
         let message = `*🌊🏄‍♂️🏖️🐬 Tide Extremes for Praia de Pipa - ${dateFormatted} ☀️*\n\n`;
-        message += `_This is approximate data, gathered using a free API._\n\n`;
+        message += `_This is approximate data, gathered using StormGlass API._\n\n`;
 
         tideData.forEach((tide) => {
             const timeUTC = moment.utc(tide.time);

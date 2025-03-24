@@ -4,7 +4,7 @@
         "response": "Looking for a place to call home in Pipa? 🏡🏠 Check out our house rental guide: [https://docs.google.com/document/d/12cNpzVMEKcWli3mr7anB3GEoVyZA46gUSvjI5qkO_EQ/edit?usp=drive_link]"
     },
     {
-        "keywords": ["car rental", "car renting", "rent a car"],
+        "keywords": ["car rental", "car renting", "rent a car", "car rent"],
         "response": "Ready to explore Pipa on your own terms? 🚗💨 Our car rental guide can help you hit the road: [https://docs.google.com/document/d/15cI5q5h_qebVGLLvOeQ1u57_1LLFdfQ163W5xQgN8ZA/edit?usp=drive_link]"
     },
     {
@@ -20,7 +20,7 @@
         "response": "Planning to travel around by bus or van? 🚌🚐 Here's a guide with all the info you need: [https://docs.google.com/document/d/1FKv3FqdYLfiVN4ctm42N_eTQcGPQwyMbYL4uZQ9VLtQ/edit?usp=drive_link]"
     },
     {
-        "keywords": ["places to work", "coworking", "work space", "cowork", "place to work", "do some work"],
+        "keywords": ["places to work", "coworking", "work space", "cowork", "place to work", "do some work", "workspace", "where to work"],
         "response": "Looking for a great place to work in Pipa? 💻🌴 We've got you covered! Check out our guide: [https://docs.google.com/document/d/1zUC12DQOt_cBie-MzJ9OJB6k8E6Kh_gopnrIrWG6qS8/edit?usp=drive_link]"
     },
     {
@@ -40,7 +40,7 @@
         "response": "Ready to hit the sand and play some beach tennis? 🏖️🎾 Check out our guide: [https://docs.google.com/document/d/12E7UVMro9OzccqmaKdOyp45YID9a11mGsNHzMxTf5gQ/edit?usp=drive_link]"
     },
     {
-        "keywords": ["yecgaa"],
+        "keywords": ["restaurant", "restaurants", "dinner options", "lunch options", "food delivery", "places to eat"],
         "response": "Craving some delicious food? 😋🍽️ Explore Pipa's vibrant restaurant scene with our guide: [https://docs.google.com/document/d/1cmu5YrAiTeH_ofy2C2eMmW0CGqH7RRg_owS4FzC_Ono/edit?usp=drive_link]"
     },
     {
@@ -48,7 +48,7 @@
         "response": "Staying in line with the group rules is important. 📜✅ Check out our guide: [https://docs.google.com/document/d/1Mywkwu2-SFeOHmkSmV47rXj1YUZnaSMbdojYufXly5o/edit?usp=drive_link]"
     },
     {
-        "keywords": ["drive", "google drive"],
+        "keywords": ["!drive"],
         "response": "Need access to our shared drive with helpful resources? 📂🔗 Here you go: [https://tinyurl.com/PipaDNDrive]"
     },
     {
@@ -60,11 +60,35 @@
         "response": "👨‍🦲"
     },
     {
-        "keywords": ["quadbike", "buggy", "buggy tour", "quadbike tour"],
+        "keywords": ["quadbike", "buggy", "buggy tour", "quadbike tour", "bugge", "buggi"],
         "response": "Ready for an off-road adventure? 🏍️🏞️ Check out our guide for quadbike and buggy tours: [https://docs.google.com/document/d/1pY0owHFmlbml0G-SLAYXdZqHBnY_c5R1YcEV1yn-1S4/edit?usp=drive_link]"
     },
     {
         "keywords": ["smartphone repair", "laptop repair", "phone repair", "damaged phone"],
         "response": "Ouch! For smartphone/laptop repairs: [https://docs.google.com/document/d/1ZP1ljPevdxiVabTeA0H2_Gcz0qGAf15V79muztG5R-k/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["lunch delivery", "marmita", "prato feito"],
+        "response": "Yes! 😋🍽️ Pipa has some lunch delivery options! [https://docs.google.com/document/d/1cmu5YrAiTeH_ofy2C2eMmW0CGqH7RRg_owS4FzC_Ono/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["!github"],
+        "response": "🤖💬 Beep boop! I see you want to understand how I work. Check our Github: https://github.com/nomads-pipa/bot]"
+    },
+    {
+        "keywords": ["weed"],
+        "response": "Did I hear someone mention... weed?! where bro? If you find some you better give it to me 🍁🌿🚬"
+    },
+    {
+        "keywords": ["veterinarian", "vet", "veterinarians"],
+        "response": "🐶🐱🐾 For vets:  [https://docs.google.com/document/d/1hX9cyyLjDMaTs3bfspYdl-O28cbZtjPBFml4WAD97GU/edit?usp=drive_link]"
+    },
+    {
+        "keywords": ["turtle", "turtles"],
+        "response": "I like turtles 🐢"
+    },
+    {
+        "keywords": ["selling", "for sale", "to sell"],
+        "response": "Looking for something specific to buy or want to sell an item? Check our Sheet! let's try to organize and bring visibility for everyone on our good deals =) [https://docs.google.com/spreadsheets/d/1FYDS3a_5wRkE00ZpxbopRHreaLbwwu_06T1jr-A2yhg/edit?usp=drive_link]"
     }
 ]

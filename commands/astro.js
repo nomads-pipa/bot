@@ -48,13 +48,14 @@ async function getAstronomyData() {
                 moonsetInfo = `🌃 Moonset: ${moonsetTime}\n`;
             }
 
-            // Get moon phase directly from the API
-            const moonPhaseText = astronomyData[0].moonPhase.current.text;
+            // Get moon phase from the API and simplify it
+            const originalMoonPhase = astronomyData[0].moonPhase.current.text;
+            const simplifiedPhase = simplifyMoonPhase(originalMoonPhase);
 
             message += `*Moon:*\n`;
             message += `🌜 Moonrise: ${moonriseTime}\n`;
             message += moonsetInfo;
-            message += `🌙 Moon Phase: ${moonPhaseText}\n`;
+            message += `🌙 Moon Phase: ${simplifiedPhase}\n`;
 
             // Add illumination if available
             if (astronomyData[0].moonPhase.current.illumination) {
@@ -70,6 +71,33 @@ async function getAstronomyData() {
             console.log(error.response.data);
         }
         return "Could not retrieve astronomy data. Please try again later.";
+    }
+}
+
+/**
+ * Simplify moon phase names to four basic phases
+ * @param {String} detailedPhase - Original moon phase from API
+ * @returns {String} Simplified moon phase
+ */
+function simplifyMoonPhase(detailedPhase) {
+    const lowerPhase = detailedPhase.toLowerCase();
+    
+    // Map detailed phases to simplified phases
+    if (lowerPhase.includes('new') || lowerPhase === 'new moon') {
+        return 'New Moon';
+    } else if (lowerPhase.includes('waxing crescent') || lowerPhase.includes('waxing gibbous')) {
+        return 'First Quarter';
+    } else if (lowerPhase.includes('full') || lowerPhase === 'full moon') {
+        return 'Full Moon';
+    } else if (lowerPhase.includes('waning crescent') || lowerPhase.includes('waning gibbous')) {
+        return 'Last Quarter';
+    } else if (lowerPhase.includes('first quarter')) {
+        return 'First Quarter';
+    } else if (lowerPhase.includes('last quarter') || lowerPhase.includes('third quarter')) {
+        return 'Last Quarter';
+    } else {
+        // Default case if we can't categorize it
+        return 'Moon Phase: ' + detailedPhase;
     }
 }
 

@@ -2,16 +2,23 @@ const axios = require('axios');
 const moment = require('moment-timezone');
 
 /**
- * Check if rain is forecasted for today in Pipa
+ * Check if rain is forecasted for today in Pipa starting from 6AM
  * @returns {Promise<{willRain: boolean, message: string}>} Rain forecast information
  */
 async function checkRainForecast() {
     const now = moment().tz('America/Sao_Paulo');
-    const today = now.clone().startOf('day');
+    
+    // Start from 6AM today (or current time if it's already past 6AM)
+    const startTime = now.clone().hour() < 6 ? 
+        now.clone().startOf('day').hour(6) : 
+        now.clone();
+    
+    // End at midnight today
+    const endTime = now.clone().endOf('day');
     
     // StormGlass API requires UTC timestamps
-    const startDate = now.clone().utc().format('YYYY-MM-DDTHH:mm:ssZ');
-    const endDate = today.clone().endOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
+    const startDate = startTime.clone().utc().format('YYYY-MM-DDTHH:mm:ssZ');
+    const endDate = endTime.clone().utc().format('YYYY-MM-DDTHH:mm:ssZ');
     
     // Pipa coordinates
     const lat = -6.228056;
@@ -37,33 +44,41 @@ async function checkRainForecast() {
         });
 
         const willRain = rainHours.length > 0;
-        const dateFormatted = today.format('DD/MM/YYYY');
+        const dateFormatted = now.format('DD/MM/YYYY');
 
         if (willRain) {
-            // Format rain times
+            // Extract times and sort them
             const rainTimes = rainHours.map(hour => {
                 const timeUTC = moment.utc(hour.time);
-                return timeUTC.tz('America/Sao_Paulo').format('HH:mm');
-            });
+                return {
+                    momentObj: timeUTC.tz('America/Sao_Paulo'),
+                    formatted: timeUTC.tz('America/Sao_Paulo').format('HH:mm'),
+                    hour: timeUTC.tz('America/Sao_Paulo').hour()
+                };
+            }).sort((a, b) => a.hour - b.hour);
 
-            // Group consecutive hours
+            // Group into consecutive periods
             const rainPeriods = [];
-            let currentPeriod = [];
+            let currentPeriod = { start: rainTimes[0], hours: [rainTimes[0]] };
 
-            rainTimes.forEach((time, index) => {
-                if (index === 0 || parseInt(time) !== parseInt(rainTimes[index-1]) + 1) {
-                    if (currentPeriod.length > 0) {
-                        rainPeriods.push(currentPeriod);
-                    }
-                    currentPeriod = [time];
+            for (let i = 1; i < rainTimes.length; i++) {
+                const prevHour = rainTimes[i-1].hour;
+                const currentHour = rainTimes[i].hour;
+                
+                // If hours are consecutive
+                if (currentHour === prevHour + 1) {
+                    currentPeriod.hours.push(rainTimes[i]);
                 } else {
-                    currentPeriod.push(time);
+                    // End the current period and start a new one
+                    currentPeriod.end = rainTimes[i-1];
+                    rainPeriods.push(currentPeriod);
+                    currentPeriod = { start: rainTimes[i], hours: [rainTimes[i]] };
                 }
-            });
-
-            if (currentPeriod.length > 0) {
-                rainPeriods.push(currentPeriod);
             }
+            
+            // Add the last period
+            currentPeriod.end = rainTimes[rainTimes.length - 1];
+            rainPeriods.push(currentPeriod);
 
             // Calculate precipitation intensity
             const maxPrecip = Math.max(...hourlyData.map(hour => {
@@ -80,17 +95,32 @@ async function checkRainForecast() {
             message += `🌧️ Rain is forecasted for Pipa today (${dateFormatted}).\n\n`;
             message += `Expect ${intensity} rainfall `;
 
-            if (rainHours.length > 18) {
-                message += `throughout most of the day.`;
-            } else if (rainHours.length > 6) {
-                message += `for several hours during the day.`;
+            // Calculate how many remaining hours in the day have rain
+            const remainingHours = endTime.diff(startTime, 'hours');
+            const rainPercentage = (rainHours.length / remainingHours) * 100;
+
+            if (rainPercentage > 75) {
+                message += `throughout most of the day.\n\n`;
+            } else if (rainPercentage > 25) {
+                message += `for several hours during the day.\n\n`;
             } else {
-                message += `during these hours: `;
-                rainTimes.forEach((time, i) => {
-                    message += time;
-                    if (i < rainTimes.length - 1) message += ", ";
-                });
+                message += `during the day.\n\n`;
             }
+            
+            // Format rain periods
+            message += `Rain expected during these periods:\n`;
+            rainPeriods.forEach((period, i) => {
+                // For single hour periods
+                if (period.hours.length === 1) {
+                    message += `• ${period.start.formatted}`;
+                } 
+                // For multi-hour periods
+                else {
+                    message += `• ${period.start.formatted} to ${period.end.formatted}`;
+                }
+                
+                if (i < rainPeriods.length - 1) message += "\n";
+            });
 
             message += `\n\nBring your umbrella! But also do not trust the forecast, cause it's Pipa afterall ☔`;
 
