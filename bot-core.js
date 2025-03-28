@@ -3,15 +3,34 @@ const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = r
 const pino = require('pino');
 const moment = require('moment-timezone');
 
-const { getUVIndex } = require('./commands/uv');
-const { getAstronomyData } = require('./commands/astro');
-const { getWaveData } = require('./commands/wave');
-const { getRainForecast } = require('./commands/rain');
-const { loadKeywordResponses } = require('./utils/keyword-manager');
+const { 
+    loadKeywordResponses, 
+    generateWelcomeMessage 
+} = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 
 // Load keyword responses from the JSON file
 let keywordResponseMap = loadKeywordResponses();
+
+// Store recent responses to prevent spam
+const recentResponses = new Map();
+
+function isResponseThrottled(keyword, response) {
+    const now = Date.now();
+    const key = `${keyword}-${response}`;
+    
+    // Check if the response exists and is within 4 hours
+    if (recentResponses.has(key)) {
+        const lastResponseTime = recentResponses.get(key);
+        if (now - lastResponseTime < 4 * 60 * 60 * 1000) {
+            return true; // Throttled
+        }
+    }
+    
+    // Update or add the response time
+    recentResponses.set(key, now);
+    return false;
+}
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -47,6 +66,9 @@ async function startBot() {
             // Setup all scheduled tasks
             if (pipaDigitalNomadsGroupId) {
                 setupSchedulers(sock, pipaDigitalNomadsGroupId);
+                
+                // Set up group participant handler
+                setupGroupParticipantHandler(sock, pipaDigitalNomadsGroupId);
             }
 
             // Set up message handler
@@ -73,6 +95,32 @@ async function getGroupId(sock, groupName) {
     }
 }
 
+function setupGroupParticipantHandler(sock, pipaDigitalNomadsGroupId) {
+    sock.ev.on('group-participants.update', async (update) => {
+        const { id, participants, action } = update;
+
+        // Check if the event is for the Pipa Digital Nomads group
+        if (id === pipaDigitalNomadsGroupId && (action === 'add')) {
+            for (const participant of participants) {
+                try {
+                    // Generate welcome message
+                    const welcomeMessage = generateWelcomeMessage(participant.split('@')[0]);
+
+                    // Send welcome message mentioning the new participant
+                    await sock.sendMessage(pipaDigitalNomadsGroupId, { 
+                        text: welcomeMessage,
+                        mentions: [participant]
+                    });
+
+                    console.log(`✅ Sent welcome message to new participant: ${participant}`);
+                } catch (err) {
+                    console.error(`❌ Error sending welcome message to ${participant}:`, err);
+                }
+            }
+        }
+    });
+}
+
 function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
     sock.ev.on('messages.upsert', async (msg) => {
         if (msg.type === 'notify') {
@@ -88,44 +136,6 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                     if (messageContent) {
                         console.log(`📩 Received message in group: ${messageContent}`);
 
-                        // Check for UV command
-                        if (messageContent.trim().toLowerCase() === '!uv' || 
-                            messageContent.trim().toUpperCase() === '!UV') {
-                            console.log('🔍 UV command detected! Fetching UV index...');
-                            const uvMessage = await getUVIndex();
-                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: uvMessage });
-                            continue; // Skip keyword check for this message
-                        }
-
-                        // Check for astronomy command
-                        if (messageContent.trim().toLowerCase() === '!astro' || 
-                            messageContent.trim().toUpperCase() === '!ASTRO') {
-                            console.log('🔍 Astronomy command detected! Fetching astronomy data...');
-                            const astronomyMessage = await getAstronomyData();
-                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: astronomyMessage });
-                            continue; // Skip keyword check for this message
-                        }
-
-                        // Check for surf command
-                        if (messageContent.trim().toLowerCase() === '!surf' || 
-                            messageContent.trim().toUpperCase() === '!SURF' || 
-                            messageContent.trim().toLowerCase() === '!wave' || 
-                            messageContent.trim().toUpperCase() === '!WAVE') {
-                            console.log('🔍 Surf command detected! Fetching wave data...');
-                            const waveMessage = await getWaveData();
-                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: waveMessage });
-                            continue; // Skip keyword check for this message
-                        }
-                        
-                        // Check for rain command
-                        if (messageContent.trim().toLowerCase() === '!rain' || 
-                            messageContent.trim().toUpperCase() === '!RAIN') {
-                            console.log('🔍 Rain command detected! Fetching rain forecast...');
-                            const rainMessage = await getRainForecast();
-                            await sock.sendMessage(pipaDigitalNomadsGroupId, { text: rainMessage });
-                            continue; // Skip keyword check for this message
-                        }
-
                         // Check for keyword groups and send the appropriate response (using regex)
                         for (const { keywords, response } of keywordResponseMap) {
                             let matchFound = false;
@@ -133,10 +143,15 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                             for (const keyword of keywords) {
                                 const regex = new RegExp(`\\b${keyword}\\b`, 'i'); // Word boundary regex, case-insensitive
                                 if (regex.test(messageContent)) {
-                                    console.log(`🔍 Keyword detected! Responding with: ${response}`);
-                                    await sock.sendMessage(pipaDigitalNomadsGroupId, { text: response });
-                                    matchFound = true;
-                                    break;
+                                    // Check if this response has been sent recently
+                                    if (!isResponseThrottled(keyword, response)) {
+                                        console.log(`🔍 Keyword detected! Responding with: ${response}`);
+                                        await sock.sendMessage(pipaDigitalNomadsGroupId, { text: response });
+                                        matchFound = true;
+                                        break;
+                                    } else {
+                                        console.log(`🚫 Throttled response for keyword: ${keyword}`);
+                                    }
                                 }
                             }
                             if (matchFound) break;

@@ -1,7 +1,7 @@
 # Pipa DN Bot 🤖💬⚡
 # 🌊🏡🚗🚨🚕🚌💻📶🛂💪🏖️😋📜📂👋
 
-Pipa DN Bot (`pipa-dn-bot.js`) is a WhatsApp bot built using the Baileys library. It provides automatic responses to keyword-based messages and sends daily tide data updates for Praia de Pipa to a designated WhatsApp group.
+Pipa DN Bot (`pipa-dn-bot.js`) is a WhatsApp bot built using the Baileys library. It provides automatic responses to keyword-based messages and sends daily updates with relevant information for the environment of Praia de Pipa to a designated WhatsApp group.
 
 ## WhatsApp Account Requirement
 
@@ -30,7 +30,7 @@ The bot is running on a Google Cloud VM with the following specifications:
 
 - **Instance Type**: e2-micro (2 vCPUs, 1 GB Memory)
 - **Operating System**: Ubuntu Server 24.04  
-- **Running environment:**
+- *Running environment:*
 - **Node.js Version**: v18.19.1
 - **Process Manager**: PM2 v5.4.3
 - **Project Directory**: `/home/joao_mezari/dn-pipa-whatsapp-bot`
@@ -62,7 +62,7 @@ Ensure you have the following installed:
    npm install
    ```
 
-3. Add your API key for tide data in `pipa-dn-bot.js` (replace the placeholder in the `Authorization` header).
+3. Add your API key for the StormGlass API.
 
 4. Start the bot:
    ```sh

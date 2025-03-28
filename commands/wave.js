@@ -24,20 +24,20 @@ async function getWaveData() {
                 'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
             },
         });
-        
+
         const waveData = response.data.hours;
         const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
-        
+
         let message = `*🏄‍♂️🌊 Surf Conditions for Praia do Madeiro - ${dateFormatted} 🏄‍♀️*\n\n`;
         message += `_This is approximate data, gathered using StormGlass API._\n\n`;
-        
-        // Filter for key times of the day (morning, noon, afternoon, evening)
-        const keyHours = [9, 12, 15, 18];
+
+        // Include 5 AM with other key times of the day
+        const keyHours = [5, 9, 12, 15, 18];
         const filteredData = waveData.filter(data => {
             const hour = moment.utc(data.time).tz('America/Sao_Paulo').hour();
             return keyHours.includes(hour);
         });
-        
+
         filteredData.forEach(data => {
             const time = moment.utc(data.time).tz('America/Sao_Paulo').format('HH:mm');
             const waveHeight = data.waveHeight?.noaa || data.waveHeight?.sg || 'N/A';
@@ -45,14 +45,14 @@ async function getWaveData() {
             const waveDirection = data.waveDirection?.noaa || data.waveDirection?.sg || 'N/A';
             const windSpeed = data.windSpeed?.noaa || data.windSpeed?.sg || 'N/A';
             const windDirection = data.windDirection?.noaa || data.windDirection?.sg || 'N/A';
-            
+
             // Convert wave direction to cardinal direction
             const waveCardinal = getCardinalDirection(waveDirection);
             const windCardinal = getCardinalDirection(windDirection);
-            
+
             // Add wave quality rating based on conditions
             const surfQuality = getSurfQualityRating(waveHeight, wavePeriod, windSpeed);
-            
+
             message += `\n*${time}*\n`;
             message += `Wave Height: ${waveHeight.toFixed(1)}m\n`;
             message += `Wave Period: ${wavePeriod.toFixed(1)}s\n`;
@@ -60,7 +60,7 @@ async function getWaveData() {
             message += `Wind: ${windSpeed.toFixed(1)} m/s from ${windCardinal} (${windDirection.toFixed(0)}°)\n`;
             message += `Surf Quality: ${surfQuality}\n`;
         });
-        
+
         return message;
     } catch (error) {
         console.error('❌ Error fetching wave data:', error);
