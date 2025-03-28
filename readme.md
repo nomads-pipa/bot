@@ -17,13 +17,6 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **UV Index**: Fetches on !uv command the current UV index for the hour 
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
 
-## Commands
-
-- !surf
-- !uv
-- !astro
-- !rain
-
 ## Infrastructure Environment
 
 The bot is running on a Google Cloud VM with the following specifications:
