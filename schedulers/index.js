@@ -11,15 +11,12 @@ const { checkAndSendRainAlert } = require('../commands/rain');
  * @param {String} time - Time to send the message (HH:MM format)
  */
 function scheduleTideData(sock, chatId, time = '19:29') {
-    let lastSentDate = null;
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');
-        const currentDate = now.format('YYYY-MM-DD');
-        if (currentTime === time && lastSentDate !== currentDate) {
+        if (currentTime === time) {
             console.log("📅 Sending scheduled tide data...");
             await sendTideDataOnce(sock, chatId);
-            lastSentDate = currentDate; // Prevent duplicate sends
         }
     }, 60 * 1000); // Check every minute
     console.log(`🕒 Tide data scheduler set for ${time} daily`);
@@ -32,15 +29,12 @@ function scheduleTideData(sock, chatId, time = '19:29') {
  * @param {String} time - Time to send the message (HH:MM format)
  */
 function scheduleAstronomyData(sock, chatId, time = '19:30') {
-    let lastSentDate = null;
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');
-        const currentDate = now.format('YYYY-MM-DD');
-        if (currentTime === time && lastSentDate !== currentDate) {
+        if (currentTime === time) {
             console.log("📅 Sending scheduled astronomy data...");
             await sendAstronomyDataOnce(sock, chatId);
-            lastSentDate = currentDate; // Prevent duplicate sends
         }
     }, 60 * 1000); // Check every minute
     
@@ -54,15 +48,12 @@ function scheduleAstronomyData(sock, chatId, time = '19:30') {
  * @param {String} time - Time to send the message (HH:MM format)
  */
 function scheduleWaveData(sock, chatId, time = '19:30') {
-    let lastSentDate = null;
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');
-        const currentDate = now.format('YYYY-MM-DD');
-        if (currentTime === time && lastSentDate !== currentDate) {
+        if (currentTime === time) {
             console.log("📅 Sending scheduled wave data...");
             await sendWaveDataOnce(sock, chatId);
-            lastSentDate = currentDate; // Prevent duplicate sends
         }
     }, 60 * 1000); // Check every minute
     
@@ -76,15 +67,12 @@ function scheduleWaveData(sock, chatId, time = '19:30') {
  * @param {String} time - Time to check the forecast (HH:MM format)
  */
 function scheduleRainCheck(sock, chatId, time = '06:00') {
-    let lastSentDate = null;
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');
-        const currentDate = now.format('YYYY-MM-DD');
-        if (currentTime === time && lastSentDate !== currentDate) {
+        if (currentTime === time) {
             console.log("🌧️ Checking rain forecast...");
             await checkAndSendRainAlert(sock, chatId);
-            lastSentDate = currentDate; // Prevent duplicate sends
         }
     }, 60 * 1000); // Check every minute
     

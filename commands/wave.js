@@ -2,73 +2,97 @@ const axios = require('axios');
 const moment = require('moment-timezone');
 
 /**
- * Fetch wave data for Praia do Madeiro (Pipa)
+ * Fetch wave data for Praia do Madeiro (Pipa) with retry functionality
+ * @param {Number} maxRetries - Maximum number of retry attempts
+ * @param {Number} delayMs - Delay between retries in milliseconds
  * @returns {Promise<string>} Formatted wave data message
  */
-async function getWaveData() {
-    // Starting with tomorrow (similar to tide.js)
-    const now = moment().add(1, 'days');
-    const startDate = now.clone().startOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
-    const endDate = now.clone().endOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
-    
-    // Updated coordinates for Praia do Madeiro
-    const lat = -6.238333;
-    const lng = -35.044444;
-    
-    // StormGlass API endpoint for wave data
-    const url = `https://api.stormglass.io/v2/weather/point?lat=${lat}&lng=${lng}&params=waveHeight,wavePeriod,waveDirection,windSpeed,windDirection&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
-    
-    try {
-        const response = await axios.get(url, {
-            headers: {
-                'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
-            },
-        });
+async function getWaveData(maxRetries = 3, delayMs = 20000) {
+    let retryCount = 0;
+    let lastError = null;
 
-        const waveData = response.data.hours;
-        const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
+    // Retry logic
+    while (retryCount <= maxRetries) {
+        try {
+            // Starting with tomorrow (similar to tide.js)
+            const now = moment().add(1, 'days');
+            const startDate = now.clone().startOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
+            const endDate = now.clone().endOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
+            
+            // Updated coordinates for Praia do Madeiro
+            const lat = -6.238333;
+            const lng = -35.044444;
+            
+            // StormGlass API endpoint for wave data
+            const url = `https://api.stormglass.io/v2/weather/point?lat=${lat}&lng=${lng}&params=waveHeight,wavePeriod,waveDirection,windSpeed,windDirection&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`;
+            
+            const response = await axios.get(url, {
+                headers: {
+                    'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
+                },
+            });
 
-        let message = `*🏄‍♂️🌊 Surf Conditions for Praia do Madeiro - ${dateFormatted} 🏄‍♀️*\n\n`;
-        message += `_This is approximate data, gathered using StormGlass API._\n\n`;
+            const waveData = response.data.hours;
+            const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
 
-        // Include 5 AM with other key times of the day
-        const keyHours = [5, 9, 12, 15, 18];
-        const filteredData = waveData.filter(data => {
-            const hour = moment.utc(data.time).tz('America/Sao_Paulo').hour();
-            return keyHours.includes(hour);
-        });
+            let message = `*🏄‍♂️🌊 Surf Conditions for Praia do Madeiro - ${dateFormatted} 🏄‍♀️*\n\n`;
+            message += `_This is approximate data, gathered using StormGlass API._\n\n`;
 
-        filteredData.forEach(data => {
-            const time = moment.utc(data.time).tz('America/Sao_Paulo').format('HH:mm');
-            const waveHeight = data.waveHeight?.noaa || data.waveHeight?.sg || 'N/A';
-            const wavePeriod = data.wavePeriod?.noaa || data.wavePeriod?.sg || 'N/A';
-            const waveDirection = data.waveDirection?.noaa || data.waveDirection?.sg || 'N/A';
-            const windSpeed = data.windSpeed?.noaa || data.windSpeed?.sg || 'N/A';
-            const windDirection = data.windDirection?.noaa || data.windDirection?.sg || 'N/A';
+            // Include 5 AM with other key times of the day
+            const keyHours = [5, 9, 12, 15, 18];
+            const filteredData = waveData.filter(data => {
+                const hour = moment.utc(data.time).tz('America/Sao_Paulo').hour();
+                return keyHours.includes(hour);
+            });
 
-            // Convert wave direction to cardinal direction
-            const waveCardinal = getCardinalDirection(waveDirection);
-            const windCardinal = getCardinalDirection(windDirection);
+            filteredData.forEach(data => {
+                const time = moment.utc(data.time).tz('America/Sao_Paulo').format('HH:mm');
+                const waveHeight = data.waveHeight?.noaa || data.waveHeight?.sg || 'N/A';
+                const wavePeriod = data.wavePeriod?.noaa || data.wavePeriod?.sg || 'N/A';
+                const waveDirection = data.waveDirection?.noaa || data.waveDirection?.sg || 'N/A';
+                const windSpeed = data.windSpeed?.noaa || data.windSpeed?.sg || 'N/A';
+                const windDirection = data.windDirection?.noaa || data.windDirection?.sg || 'N/A';
 
-            // Add wave quality rating based on conditions
-            const surfQuality = getSurfQualityRating(waveHeight, wavePeriod, windSpeed);
+                // Convert wave direction to cardinal direction
+                const waveCardinal = getCardinalDirection(waveDirection);
+                const windCardinal = getCardinalDirection(windDirection);
 
-            message += `\n*${time}*\n`;
-            message += `Wave Height: ${waveHeight.toFixed(1)}m\n`;
-            message += `Wave Period: ${wavePeriod.toFixed(1)}s\n`;
-            message += `Wave Direction: ${waveCardinal} (${waveDirection.toFixed(0)}°)\n`;
-            message += `Wind: ${windSpeed.toFixed(1)} m/s from ${windCardinal} (${windDirection.toFixed(0)}°)\n`;
-            message += `Surf Quality: ${surfQuality}\n`;
-        });
+                // Add wave quality rating based on conditions
+                const surfQuality = getSurfQualityRating(waveHeight, wavePeriod, windSpeed);
 
-        return message;
-    } catch (error) {
-        console.error('❌ Error fetching wave data:', error);
-        if (error.response) {
-            console.log(error.response.data);
+                message += `\n*${time}*\n`;
+                message += `Wave Height: ${waveHeight.toFixed(1)}m\n`;
+                message += `Wave Period: ${wavePeriod.toFixed(1)}s\n`;
+                message += `Wave Direction: ${waveCardinal} (${waveDirection.toFixed(0)}°)\n`;
+                message += `Wind: ${windSpeed.toFixed(1)} m/s from ${windCardinal} (${windDirection.toFixed(0)}°)\n`;
+                message += `Surf Quality: ${surfQuality}\n`;
+            });
+
+            return message;
+        } catch (error) {
+            lastError = error;
+            retryCount++;
+            
+            console.error(`❌ Error fetching wave data (Attempt ${retryCount}/${maxRetries}):`, error.message);
+            
+            if (error.response) {
+                console.log('Response error data:', error.response.data);
+            }
+            
+            // If we've reached max retries, break out of the loop
+            if (retryCount > maxRetries) {
+                break;
+            }
+            
+            // Wait before trying again
+            console.log(`Waiting ${delayMs/1000} seconds before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
         }
-        return "Could not retrieve surf data. Please try again later.";
     }
+    
+    // If we got here, all retries failed
+    console.error('❌ All retry attempts failed');
+    return "Could not retrieve surf data. Please try again later.";
 }
 
 /**
@@ -130,13 +154,15 @@ function getSurfQualityRating(waveHeight, wavePeriod, windSpeed) {
 }
 
 /**
- * Send wave data to a specific chat
+ * Send wave data to a specific chat with retry logic
  * @param {Object} sock - WhatsApp socket connection
  * @param {String} chatId - Chat ID to send the message to
+ * @param {Number} maxRetries - Maximum number of retry attempts (default: 3)
+ * @param {Number} delayMs - Delay between retries in milliseconds (default: 20 seconds)
  */
-async function sendWaveDataOnce(sock, chatId) {
+async function sendWaveDataOnce(sock, chatId, maxRetries = 3, delayMs = 20000) {
     try {
-        const waveMessage = await getWaveData();
+        const waveMessage = await getWaveData(maxRetries, delayMs);
         await sock.sendMessage(chatId, { text: waveMessage });
         console.log('✅ Wave data sent successfully');
     } catch (error) {

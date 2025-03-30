@@ -12,25 +12,11 @@ const { setupSchedulers } = require('./schedulers');
 // Load keyword responses from the JSON file
 let keywordResponseMap = loadKeywordResponses();
 
-// Store recent responses to prevent spam
+// Store recent responses with timestamps
 const recentResponses = new Map();
 
-function isResponseThrottled(keyword, response) {
-    const now = Date.now();
-    const key = `${keyword}-${response}`;
-    
-    // Check if the response exists and is within 4 hours
-    if (recentResponses.has(key)) {
-        const lastResponseTime = recentResponses.get(key);
-        if (now - lastResponseTime < 4 * 60 * 60 * 1000) {
-            return true; // Throttled
-        }
-    }
-    
-    // Update or add the response time
-    recentResponses.set(key, now);
-    return false;
-}
+// Throttle period in milliseconds (6 hours)
+const THROTTLE_PERIOD = 6 * 60 * 60 * 1000;
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
@@ -136,25 +122,40 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                     if (messageContent) {
                         console.log(`📩 Received message in group: ${messageContent}`);
 
-                        // Check for keyword groups and send the appropriate response (using regex)
+                        // Check for keyword matches
                         for (const { keywords, response } of keywordResponseMap) {
-                            let matchFound = false;
-
+                            let matched = false;
+                            
+                            // Check if any keyword matches
                             for (const keyword of keywords) {
-                                const regex = new RegExp(`\\b${keyword}\\b`, 'i'); // Word boundary regex, case-insensitive
+                                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
                                 if (regex.test(messageContent)) {
-                                    // Check if this response has been sent recently
-                                    if (!isResponseThrottled(keyword, response)) {
-                                        console.log(`🔍 Keyword detected! Responding with: ${response}`);
-                                        await sock.sendMessage(pipaDigitalNomadsGroupId, { text: response });
-                                        matchFound = true;
-                                        break;
-                                    } else {
-                                        console.log(`🚫 Throttled response for keyword: ${keyword}`);
-                                    }
+                                    matched = true;
+                                    break;
                                 }
                             }
-                            if (matchFound) break;
+                            
+                            if (matched) {
+                                const now = Date.now();
+                                
+                                // Check if this response was sent in the last 6 hours
+                                if (recentResponses.has(response)) {
+                                    const lastSent = recentResponses.get(response);
+                                    const timeSince = now - lastSent;
+                                    
+                                    if (timeSince < THROTTLE_PERIOD) {
+                                        // Skip if sent within the throttle period
+                                        console.log(`Not sending "${response}" - last sent ${Math.round(timeSince / (60 * 1000))} minutes ago`);
+                                        break;
+                                    }
+                                }
+                                
+                                // Send response and record the current time
+                                await sock.sendMessage(pipaDigitalNomadsGroupId, { text: response });
+                                recentResponses.set(response, now);
+                                console.log(`🔍 Keyword matched! Sent response: ${response}`);
+                                break;
+                            }
                         }
                     }
                 }
