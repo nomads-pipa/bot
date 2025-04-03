@@ -1,5 +1,6 @@
 const axios = require('axios');
 const moment = require('moment-timezone');
+require('dotenv').config();
 
 /**
  * Fetch wave data for Praia do Madeiro (Pipa) with retry functionality
@@ -28,7 +29,7 @@ async function getWaveData(maxRetries = 3, delayMs = 20000) {
             
             const response = await axios.get(url, {
                 headers: {
-                    'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
+                    'Authorization': process.env.STORMGLASS_API_KEY,
                 },
             });
 

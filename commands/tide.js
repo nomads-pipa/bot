@@ -1,5 +1,6 @@
 const axios = require('axios');
 const moment = require('moment-timezone');
+require('dotenv').config();
 
 /**
  * Fetch tide data for Pipa with retry functionality
@@ -10,7 +11,6 @@ const moment = require('moment-timezone');
 async function getTideData(maxRetries = 3, delayMs = 20000) {
     let retryCount = 0;
     let lastError = null;
-
     // Retry logic
     while (retryCount <= maxRetries) {
         try {
@@ -25,22 +25,18 @@ async function getTideData(maxRetries = 3, delayMs = 20000) {
             
             const response = await axios.get(url, {
                 headers: {
-                    'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
+                    'Authorization': process.env.STORMGLASS_API_KEY,
                 },
             });
-
             const tideData = response.data.data;
             const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
-
             let message = `*🌊🏄‍♂️🏖️🐬 Tide Extremes for Praia de Pipa - ${dateFormatted} ☀️*\n\n`;
             message += `_This is approximate data, gathered using StormGlass API._\n\n`;
-
             tideData.forEach((tide) => {
                 const timeUTC = moment.utc(tide.time);
                 const timeSaoPaulo = timeUTC.tz('America/Sao_Paulo').format('HH:mm');
                 message += `\n${tide.type}: ${timeSaoPaulo}, Height: ${tide.height.toFixed(2)}m`;
             });
-
             return message;
         } catch (error) {
             lastError = error;

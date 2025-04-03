@@ -1,5 +1,6 @@
 const axios = require('axios');
 const moment = require('moment-timezone');
+require('dotenv').config();
 
 /**
  * Fetch astronomy data for Pipa
@@ -17,7 +18,7 @@ async function getAstronomyData() {
     try {
         const response = await axios.get(url, {
             headers: {
-                'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
+                'Authorization': process.env.STORMGLASS_API_KEY,
             },
         });
 

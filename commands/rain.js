@@ -1,5 +1,6 @@
 const axios = require('axios');
 const moment = require('moment-timezone');
+require('dotenv').config();
 
 /**
  * Check if rain is forecasted for today in Pipa starting from 6AM
@@ -36,7 +37,7 @@ async function checkRainForecast(maxRetries = 3, delayMs = 20000) {
             
             const response = await axios.get(url, {
                 headers: {
-                    'Authorization': '04f5362a-eff6-11ef-85cb-0242ac130003-04f53684-eff6-11ef-85cb-0242ac130003',
+                    'Authorization': process.env.STORMGLASS_API_KEY,
                 },
             });
 
