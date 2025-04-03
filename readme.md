@@ -55,7 +55,10 @@ Ensure you have the following installed:
    npm install
    ```
 
-3. Add your API key for the StormGlass API.
+3. Create a .env file in the project root directory. Add your API key for the StormGlass API. It should look like:
+``` # StormGlass API credentials
+STORMGLASS_API_KEY=your_api_key_here
+```
 
 4. Start the bot:
    ```sh
