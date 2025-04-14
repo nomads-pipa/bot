@@ -2,12 +2,18 @@ const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const moment = require('moment-timezone');
+require('dotenv').config();
 
 const { 
     loadKeywordResponses, 
     generateWelcomeMessage 
 } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
+const { createFileLogger } = require('./utils/file-logger');
+
+// Initialize our custom logger (will use LOG_DIRECTORY from .env if available)
+const logger = createFileLogger();
+logger.info(`Logger initialized. Writing logs to: ${logger.getLogDirectory()}`);
 
 // Load keyword responses from the JSON file
 let keywordResponseMap = loadKeywordResponses();
@@ -20,14 +26,14 @@ const THROTTLE_PERIOD = 6 * 60 * 60 * 1000;
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-    const logger = pino({ level: 'info' });
+    const pinoLogger = pino({ level: 'info' });
 
     const { version, isLatest } = await fetchLatestBaileysVersion();
-    console.log(`Using WhatsApp Web version v${version.join('.')}, isLatest: ${isLatest}`);
+    logger.info(`Using WhatsApp Web version v${version.join('.')}, isLatest: ${isLatest}`);
 
     const sock = makeWASocket({
         auth: state,
-        logger,
+        logger: pinoLogger,
         version,
         printQRInTerminal: true
     });
@@ -38,16 +44,16 @@ async function startBot() {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            console.log('Connection closed due to', lastDisconnect.error, ', reconnecting:', shouldReconnect);
+            logger.error('Connection closed due to', lastDisconnect.error, ', reconnecting:', shouldReconnect);
             if (shouldReconnect) {
                 startBot();
             }
         } else if (connection === 'open') {
-            console.log('✅ Connected successfully');
+            logger.info('✅ Connected successfully');
 
             // Fetch group ID for "Pipa Digital Nomads"
             let pipaDigitalNomadsGroupId = await getGroupId(sock, "Pipa Digital Nomads");
-            console.log(`Group ID for "Pipa Digital Nomads": ${pipaDigitalNomadsGroupId}`);
+            logger.info(`Group ID for "Pipa Digital Nomads": ${pipaDigitalNomadsGroupId}`);
 
             // Setup all scheduled tasks
             if (pipaDigitalNomadsGroupId) {
@@ -73,10 +79,10 @@ async function getGroupId(sock, groupName) {
                 return groupId;
             }
         }
-        console.log(`🚫 Group "${groupName}" not found.`);
+        logger.warn(`🚫 Group "${groupName}" not found.`);
         return null;
     } catch (err) {
-        console.error('❌ Error fetching group ID:', err);
+        logger.error('❌ Error fetching group ID:', err);
         return null;
     }
 }
@@ -98,9 +104,9 @@ function setupGroupParticipantHandler(sock, pipaDigitalNomadsGroupId) {
                         mentions: [participant]
                     });
 
-                    console.log(`✅ Sent welcome message to new participant: ${participant}`);
+                    logger.info(`✅ Sent welcome message to new participant: ${participant}`);
                 } catch (err) {
-                    console.error(`❌ Error sending welcome message to ${participant}:`, err);
+                    logger.error(`❌ Error sending welcome message to ${participant}:`, err);
                 }
             }
         }
@@ -120,7 +126,7 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                                          message.message.extendedTextMessage?.text;
 
                     if (messageContent) {
-                        console.log(`📩 Received message in group: ${messageContent}`);
+                        logger.info(`📩 Received message in group: ${messageContent}`);
 
                         // Check for keyword matches
                         for (const { keywords, response } of keywordResponseMap) {
@@ -145,7 +151,7 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                                     
                                     if (timeSince < THROTTLE_PERIOD) {
                                         // Skip if sent within the throttle period
-                                        console.log(`Not sending "${response}" - last sent ${Math.round(timeSince / (60 * 1000))} minutes ago`);
+                                        logger.info(`Not sending "${response}" - last sent ${Math.round(timeSince / (60 * 1000))} minutes ago`);
                                         break;
                                     }
                                 }
@@ -153,7 +159,7 @@ function setupMessageHandler(sock, pipaDigitalNomadsGroupId) {
                                 // Send response and record the current time
                                 await sock.sendMessage(pipaDigitalNomadsGroupId, { text: response });
                                 recentResponses.set(response, now);
-                                console.log(`🔍 Keyword matched! Sent response: ${response}`);
+                                logger.info(`🔍 Keyword matched! Sent response: ${response}`);
                                 break;
                             }
                         }

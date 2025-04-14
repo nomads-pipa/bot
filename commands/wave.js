@@ -6,9 +6,10 @@ require('dotenv').config();
  * Fetch wave data for Praia do Madeiro (Pipa) with retry functionality
  * @param {Number} maxRetries - Maximum number of retry attempts
  * @param {Number} delayMs - Delay between retries in milliseconds
+ * @param {Number} longRetryDelayMs - Longer delay for special retry case in milliseconds
  * @returns {Promise<string>} Formatted wave data message
  */
-async function getWaveData(maxRetries = 3, delayMs = 20000) {
+async function getWaveData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1800000) {
     let retryCount = 0;
     let lastError = null;
 
@@ -80,9 +81,18 @@ async function getWaveData(maxRetries = 3, delayMs = 20000) {
                 console.log('Response error data:', error.response.data);
             }
             
-            // If we've reached max retries, break out of the loop
+            // If we've reached max retries, try one more time with a longer delay
             if (retryCount > maxRetries) {
-                break;
+                console.log(`All regular retries failed. Attempting one final retry in 30 minutes...`);
+                await new Promise(resolve => setTimeout(resolve, longRetryDelayMs));
+                try {
+                    // One last attempt after long delay
+                    const result = await getWaveData(0, 0); // No retries on this final attempt
+                    return result;
+                } catch (finalError) {
+                    console.error('❌ Final retry attempt failed:', finalError.message);
+                    break;
+                }
             }
             
             // Wait before trying again
@@ -92,7 +102,7 @@ async function getWaveData(maxRetries = 3, delayMs = 20000) {
     }
     
     // If we got here, all retries failed
-    console.error('❌ All retry attempts failed');
+    console.error('❌ All retry attempts failed for wave data');
     return "Could not retrieve surf data. Please try again later.";
 }
 
@@ -160,10 +170,11 @@ function getSurfQualityRating(waveHeight, wavePeriod, windSpeed) {
  * @param {String} chatId - Chat ID to send the message to
  * @param {Number} maxRetries - Maximum number of retry attempts (default: 3)
  * @param {Number} delayMs - Delay between retries in milliseconds (default: 20 seconds)
+ * @param {Number} longRetryDelayMs - Longer delay for special retry case in milliseconds (default: 30 minutes)
  */
-async function sendWaveDataOnce(sock, chatId, maxRetries = 3, delayMs = 20000) {
+async function sendWaveDataOnce(sock, chatId, maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1800000) {
     try {
-        const waveMessage = await getWaveData(maxRetries, delayMs);
+        const waveMessage = await getWaveData(maxRetries, delayMs, longRetryDelayMs);
         await sock.sendMessage(chatId, { text: waveMessage });
         console.log('✅ Wave data sent successfully');
     } catch (error) {
