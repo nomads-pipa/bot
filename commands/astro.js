@@ -46,9 +46,15 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
                 message += `🌇 Sunset: ${sunsetTime}\n\n`;
             }
 
+            // Variables to track special full moon message conditions
+            let isFullMoon = false;
+            let moonriseInSpecialTimeRange = false;
+            let moonriseTime = '';
+
             // Moonrise, moonset, and moon phase
             if (astronomyData[0].moonrise && astronomyData[0].moonPhase) {
-                const moonriseTime = moment.utc(astronomyData[0].moonrise).tz('America/Sao_Paulo').format('HH:mm');
+                moonriseTime = moment.utc(astronomyData[0].moonrise).tz('America/Sao_Paulo').format('HH:mm');
+                const moonriseHour = parseInt(moonriseTime.split(':')[0]);
 
                 // Add moonset if available
                 let moonsetInfo = "";
@@ -57,14 +63,19 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
                     moonsetInfo = `🌃 Moonset: ${moonsetTime}\n`;
                 }
 
-                // Get moon phase from the API and simplify it
-                const originalMoonPhase = astronomyData[0].moonPhase.current.text;
-                const simplifiedPhase = simplifyMoonPhase(originalMoonPhase);
+                // Get moon phase using the value instead of text
+                const moonPhaseValue = astronomyData[0].moonPhase.current.value;
+                const moonPhaseInfo = getMoonPhaseFromValue(moonPhaseValue);
+                
+                // Check if it's a full moon
+                isFullMoon = moonPhaseInfo.name === 'Full Moon';
+                // Check if moonrise is between 17:00-18:00
+                moonriseInSpecialTimeRange = (moonriseHour >= 17 && moonriseHour < 19);
 
                 message += `*Moon:*\n`;
                 message += `🌜 Moonrise: ${moonriseTime}\n`;
                 message += moonsetInfo;
-                message += `🌙 Moon Phase: ${simplifiedPhase}\n`;
+                message += `🌙 Moon Phase: ${moonPhaseInfo.name} ${moonPhaseInfo.emoji}\n`;
 
                 // Add illumination if available
                 if (astronomyData[0].moonPhase.current.illumination) {
@@ -73,7 +84,16 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
                 }
             }
 
-            return message;
+            // Check if we should add a special message for full moon at Chapadão
+            if (isFullMoon && moonriseInSpecialTimeRange) {
+                message += `\n\n*🌕 Special Event: Full Moon Rising! 🌕*\n`;
+                message += `Good conditions for a nice Moonrise at Chapadão! Moon will be rising ${moonriseTime}. Grab a nice drink and a joint and head there!\n`;
+            }
+
+            return {
+                message,
+                isSpecialFullMoon: isFullMoon && moonriseInSpecialTimeRange
+            };
         } catch (error) {
             lastError = error;
             retryCount++;
@@ -106,33 +126,41 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
     
     // If we got here, all retries failed
     console.error('❌ All retry attempts failed for astronomy data');
-    return "Could not retrieve astronomy data. Please try again later.";
+    return {
+        message: "Could not retrieve astronomy data. Please try again later.",
+        isSpecialFullMoon: false
+    };
 }
 
 /**
- * Simplify moon phase names to four basic phases
- * @param {String} detailedPhase - Original moon phase from API
- * @returns {String} Simplified moon phase
+ * Determine moon phase based on numerical value with simplified names
+ * @param {Number} value - Moon phase value between 0.0 and 1.0
+ * @returns {Object} Moon phase information with name and emoji
  */
-function simplifyMoonPhase(detailedPhase) {
-    const lowerPhase = detailedPhase.toLowerCase();
+function getMoonPhaseFromValue(value) {
+    // Normalize the value to be between 0 and 1
+    const normalizedValue = ((value % 1) + 1) % 1;
     
-    // Map detailed phases to simplified phases
-    if (lowerPhase.includes('new') || lowerPhase === 'new moon') {
-        return 'New Moon';
-    } else if (lowerPhase.includes('waxing crescent') || lowerPhase.includes('waxing gibbous')) {
-        return 'First Quarter';
-    } else if (lowerPhase.includes('full') || lowerPhase === 'full moon') {
-        return 'Full Moon';
-    } else if (lowerPhase.includes('waning crescent') || lowerPhase.includes('waning gibbous')) {
-        return 'Last Quarter';
-    } else if (lowerPhase.includes('first quarter')) {
-        return 'First Quarter';
-    } else if (lowerPhase.includes('last quarter') || lowerPhase.includes('third quarter')) {
-        return 'Last Quarter';
+    // Define phase ranges and corresponding information with simpler names
+    if (normalizedValue >= 0.97 || normalizedValue < 0.03) {
+        return { name: 'New Moon', emoji: '🌑' };
+    } else if (normalizedValue >= 0.03 && normalizedValue < 0.22) {
+        return { name: 'Crescent Moon', emoji: '🌒' };
+    } else if (normalizedValue >= 0.22 && normalizedValue < 0.28) {
+        return { name: 'First Quarter', emoji: '🌓' };
+    } else if (normalizedValue >= 0.28 && normalizedValue < 0.47) {
+        return { name: 'Growing Moon', emoji: '🌔' };
+    } else if (normalizedValue >= 0.47 && normalizedValue < 0.53) {
+        return { name: 'Full Moon', emoji: '🌕' };
+    } else if (normalizedValue >= 0.53 && normalizedValue < 0.72) {
+        return { name: 'Shrinking Moon', emoji: '🌖' };
+    } else if (normalizedValue >= 0.72 && normalizedValue < 0.78) {
+        return { name: 'Last Quarter', emoji: '🌗' };
+    } else if (normalizedValue >= 0.78 && normalizedValue < 0.97) {
+        return { name: 'Crescent Moon', emoji: '🌘' };
     } else {
-        // Default case if we can't categorize it
-        return 'Moon Phase: ' + detailedPhase;
+        // Fallback in case of unexpected values
+        return { name: `Moon Phase (${normalizedValue.toFixed(2)})`, emoji: '🌙' };
     }
 }
 
@@ -146,9 +174,14 @@ function simplifyMoonPhase(detailedPhase) {
  */
 async function sendAstronomyDataOnce(sock, chatId, maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1800000) {
     try {
-        const astronomyMessage = await getAstronomyData(maxRetries, delayMs, longRetryDelayMs);
-        await sock.sendMessage(chatId, { text: astronomyMessage });
+        const result = await getAstronomyData(maxRetries, delayMs, longRetryDelayMs);
+        await sock.sendMessage(chatId, { text: result.message });
         console.log('✅ Astronomy data sent successfully');
+        
+        // Log if it's a special full moon event
+        if (result.isSpecialFullMoon) {
+            console.log('✨ Special full moon event detected!');
+        }
     } catch (error) {
         console.error('❌ Error sending astronomy data:', error);
     }
