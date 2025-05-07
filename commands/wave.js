@@ -59,8 +59,8 @@ async function getWaveData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1
                 const waveCardinal = getCardinalDirection(waveDirection);
                 const windCardinal = getCardinalDirection(windDirection);
 
-                // Add wave quality rating based on conditions
-                const surfQuality = getSurfQualityRating(waveHeight, wavePeriod, windSpeed);
+                // Add wave quality rating based on conditions using improved algorithm
+                const surfQuality = getSurfQualityRating(waveHeight, wavePeriod, windSpeed, windDirection, waveDirection);
 
                 message += `\n*${time}*\n`;
                 message += `Wave Height: ${waveHeight.toFixed(1)}m\n`;
@@ -118,50 +118,90 @@ function getCardinalDirection(degrees) {
 }
 
 /**
- * Calculate surf quality rating based on conditions
+ * Calculate surf quality rating based on conditions with stricter criteria
  * @param {Number} waveHeight - Wave height in meters
  * @param {Number} wavePeriod - Wave period in seconds
  * @param {Number} windSpeed - Wind speed in m/s
+ * @param {Number} windDirection - Wind direction in degrees
+ * @param {Number} waveDirection - Wave direction in degrees 
  * @returns {String} Surf quality rating with emoji
  */
-function getSurfQualityRating(waveHeight, wavePeriod, windSpeed) {
-    // Simple algorithm to rate surf conditions
+function getSurfQualityRating(waveHeight, wavePeriod, windSpeed, windDirection, waveDirection) {
+    // More sophisticated algorithm with stricter criteria
     let score = 0;
     
-    // Wave height score (0.5m to 2.5m is ideal)
-    if (waveHeight >= 0.5 && waveHeight <= 2.5) {
+    // Wave height score (0.7m to 2.0m is ideal for this beach)
+    if (waveHeight >= 0.7 && waveHeight <= 2.0) {
         score += 3;
-    } else if (waveHeight > 2.5 && waveHeight <= 4) {
-        score += 2; // Bigger waves, good for experienced surfers
-    } else if (waveHeight > 0 && waveHeight < 0.5) {
-        score += 1; // Too small
+    } else if ((waveHeight > 2.0 && waveHeight <= 2.5) || (waveHeight >= 0.5 && waveHeight < 0.7)) {
+        score += 2; // Still decent but not ideal
+    } else if ((waveHeight > 2.5 && waveHeight <= 3.5) || (waveHeight >= 0.3 && waveHeight < 0.5)) {
+        score += 1; // Borderline conditions
     } else {
-        score += 0; // Too big or no data
+        score += 0; // Either too big (>3.5m) or too small (<0.3m)
     }
     
-    // Wave period score (longer period is better)
-    if (wavePeriod >= 10) {
-        score += 3;
-    } else if (wavePeriod >= 7) {
-        score += 2;
-    } else if (wavePeriod > 0) {
-        score += 1;
+    // Wave period score (longer period is better, but with higher minimum thresholds)
+    if (wavePeriod >= 12) {
+        score += 3; // Excellent period
+    } else if (wavePeriod >= 9) {
+        score += 2; // Good period
+    } else if (wavePeriod >= 6) {
+        score += 1; // Acceptable period
+    } else {
+        score += 0; // Poor period, too choppy
     }
     
-    // Wind speed score (less wind is better for clean waves)
-    if (windSpeed < 3) {
-        score += 3; // Light wind
-    } else if (windSpeed < 6) {
-        score += 2; // Moderate wind
-    } else if (windSpeed < 10) {
-        score += 1; // Strong wind
+    // Wind speed score (much stricter thresholds)
+    if (windSpeed < 2) {
+        score += 3; // Very light wind - great conditions
+    } else if (windSpeed < 4) {
+        score += 2; // Light wind - good conditions
+    } else if (windSpeed < 7) {
+        score += 1; // Moderate wind - affecting quality
+    } else {
+        score += 0; // Strong wind - poor conditions
     }
     
-    // Convert score to rating
-    if (score >= 8) return "🟢 Excellent";
-    if (score >= 6) return "🟡 Good";
-    if (score >= 4) return "🟠 Fair";
+    // Wind direction relative to wave direction (new factor)
+    // Calculate if the wind is offshore, cross-shore, or onshore
+    const angleDiff = calculateAngleDifference(windDirection, waveDirection);
+    
+    if (angleDiff >= 135 && angleDiff <= 225) {
+        score += 3; // Offshore wind (ideal)
+    } else if ((angleDiff >= 90 && angleDiff < 135) || (angleDiff > 225 && angleDiff <= 270)) {
+        score += 2; // Cross-offshore wind (good)
+    } else if ((angleDiff >= 45 && angleDiff < 90) || (angleDiff > 270 && angleDiff <= 315)) {
+        score += 1; // Cross-shore wind (acceptable)
+    } else {
+        score += 0; // Onshore wind (poor)
+    }
+    
+    // Convert score to rating with higher thresholds
+    if (score >= 10) return "🟢 Excellent";
+    if (score >= 8) return "🟡 Good";
+    if (score >= 6) return "🟠 Fair";
     return "🔴 Poor";
+}
+
+/**
+ * Calculate the angle difference between wind and wave directions
+ * @param {Number} windDirection - Wind direction in degrees
+ * @param {Number} waveDirection - Wave direction in degrees
+ * @returns {Number} Angle difference in degrees (0-360)
+ */
+function calculateAngleDifference(windDirection, waveDirection) {
+    // Calculate the absolute difference between wind and wave directions
+    let angleDiff = Math.abs(windDirection - waveDirection);
+    
+    // Ensure the angle is the smallest one (never more than 180 degrees)
+    if (angleDiff > 180) {
+        angleDiff = 360 - angleDiff;
+    }
+    
+    // For surf conditions, we want to know if wind is offshore (180° difference from wave direction)
+    // Return the wind direction relative to wave direction
+    return (windDirection + 180) % 360;
 }
 
 /**
