@@ -1,7 +1,5 @@
 # Pipa DN Bot 🤖💬⚡
 # 🌊🏡🚗🚨🚕🚌💻📶🛂💪🏖️😋📜📂👋
-<img width="510" alt="2025-04-15 13_32_55-WhatsApp" src="https://github.com/user-attachments/assets/384da3c1-9770-4209-a9f0-82994892369c" />
-<img width="495" alt="image" src="https://github.com/user-attachments/assets/ec771624-e533-4276-81bb-2c11a86b90dd" />
 
 Pipa DN Bot (`pipa-dn-bot.js`) is a WhatsApp bot built using the Baileys library. It provides automatic responses to keyword-based messages and sends daily updates with relevant information for the environment of Praia de Pipa to a designated WhatsApp group.
 
@@ -16,7 +14,12 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **Daily Astronomical Data Updates**: Fetches and sends sun/moon rising and seting times
 - **Daily Surfing Conditions**: Fetches and sends surfing conditions for Praia do Madeiro
 - **Daily Rain Forecast**: Fetches and sends alert for the day in case of rain forecast
+- **Throttling**: It throtlles messages in a timespam to prevent spammimg
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
+
+##Screebshots
+<img width="510" alt="2025-04-15 13_32_55-WhatsApp" src="https://github.com/user-attachments/assets/384da3c1-9770-4209-a9f0-82994892369c" />
+<img width="495" alt="image" src="https://github.com/user-attachments/assets/ec771624-e533-4276-81bb-2c11a86b90dd" />
 
 ## Infrastructure Environment
 

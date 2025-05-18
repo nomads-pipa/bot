@@ -143,9 +143,9 @@ function getSurfQualityRating(waveHeight, wavePeriod, windSpeed, windDirection, 
     
     // Wave period score (longer period is better, but with higher minimum thresholds)
     if (wavePeriod >= 12) {
-        score += 3; // Excellent period
+        score += 5; // Excellent period
     } else if (wavePeriod >= 9) {
-        score += 2; // Good period
+        score += 3; // Good period
     } else if (wavePeriod >= 6) {
         score += 1; // Acceptable period
     } else {
