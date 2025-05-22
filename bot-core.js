@@ -10,6 +10,7 @@ const {
 } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 const { createFileLogger } = require('./utils/file-logger');
+const { initNatalTransfer, processNatalTransferMessage, isNatalTransferMessage } = require('./utils/natal-transfer');
 
 // Initialize our custom logger (will use LOG_DIRECTORY from .env if available)
 const logger = createFileLogger();
@@ -50,6 +51,10 @@ async function startBot() {
             }
         } else if (connection === 'open') {
             logger.info('✅ Connected successfully');
+
+            // Initialize the Natal transfer module
+            await initNatalTransfer();
+            logger.info('✅ Natal transfer module initialized');
 
             // Get group names from environment variable
             const groupNames = getGroupNamesFromEnv();
@@ -170,48 +175,55 @@ function setupMessageHandler(sock, groupMap) {
                 // Check if this is a message from one of our monitored groups
                 if (groupIds.has(remoteJid) && !message.key.fromMe && message.message) {
                     const messageContent = message.message.conversation || 
-                                          message.message.extendedTextMessage?.text;
+                                         message.message.extendedTextMessage?.text;
+                    const sender = message.key.participant || message.key.remoteJid;
 
                     if (messageContent) {
                         // Find which group this is
                         const groupName = Object.keys(groupMap).find(name => groupMap[name] === remoteJid);
                         logger.info(`📩 Received message in group "${groupName}": ${messageContent}`);
 
-                        // Check for keyword matches
-                        for (const { keywords, response } of keywordResponseMap) {
-                            let matched = false;
-                            
-                            // Check if any keyword matches
-                            for (const keyword of keywords) {
-                                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
-                                if (regex.test(messageContent)) {
-                                    matched = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (matched) {
-                                const now = Date.now();
-                                // Create a unique key for the response in this specific group
-                                const responseKey = `${remoteJid}:${response}`;
+                        // First check if this is a Natal transfer message
+                        const isNatalTransfer = await processNatalTransferMessage(sock, messageContent, sender, remoteJid);
+                        
+                        // If not a Natal transfer message, check for other keyword matches
+                        if (!isNatalTransfer) {
+                            // Check for keyword matches
+                            for (const { keywords, response } of keywordResponseMap) {
+                                let matched = false;
                                 
-                                // Check if this response was sent in the last 6 hours in this group
-                                if (recentResponses.has(responseKey)) {
-                                    const lastSent = recentResponses.get(responseKey);
-                                    const timeSince = now - lastSent;
-                                    
-                                    if (timeSince < THROTTLE_PERIOD) {
-                                        // Skip if sent within the throttle period
-                                        logger.info(`Not sending "${response}" to group "${groupName}" - last sent ${Math.round(timeSince / (60 * 1000))} minutes ago`);
+                                // Check if any keyword matches
+                                for (const keyword of keywords) {
+                                    const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                                    if (regex.test(messageContent)) {
+                                        matched = true;
                                         break;
                                     }
                                 }
                                 
-                                // Send response and record the current time
-                                await sock.sendMessage(remoteJid, { text: response });
-                                recentResponses.set(responseKey, now);
-                                logger.info(`🔍 Keyword matched in group "${groupName}"! Sent response: ${response}`);
-                                break;
+                                if (matched) {
+                                    const now = Date.now();
+                                    // Create a unique key for the response in this specific group
+                                    const responseKey = `${remoteJid}:${response}`;
+                                    
+                                    // Check if this response was sent in the last 6 hours in this group
+                                    if (recentResponses.has(responseKey)) {
+                                        const lastSent = recentResponses.get(responseKey);
+                                        const timeSince = now - lastSent;
+                                        
+                                        if (timeSince < THROTTLE_PERIOD) {
+                                            // Skip if sent within the throttle period
+                                            logger.info(`Not sending "${response}" to group "${groupName}" - last sent ${Math.round(timeSince / (60 * 1000))} minutes ago`);
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Send response and record the current time
+                                    await sock.sendMessage(remoteJid, { text: response });
+                                    recentResponses.set(responseKey, now);
+                                    logger.info(`🔍 Keyword matched in group "${groupName}"! Sent response: ${response}`);
+                                    break;
+                                }
                             }
                         }
                     }

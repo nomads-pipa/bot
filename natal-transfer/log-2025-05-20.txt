@@ -1,0 +1,347 @@
+[2025-05-20 18:38:56.375] [INFO] Saved rides data to file
+[2025-05-20 18:38:56.375] [INFO] Created new rides data file
+[2025-05-20 18:38:56.377] [INFO] Natal transfer module initialized
+[2025-05-20 18:39:30.675] [INFO] Loaded rides data from file
+[2025-05-20 18:39:30.675] [INFO] Natal transfer module initialized
+[2025-05-20 18:39:37.907] [INFO] Detected potential Natal transfer message from 554896700391: anyone going to natal tomorrow?
+[2025-05-20 18:40:36.624] [INFO] Loaded rides data from file
+[2025-05-20 18:40:36.625] [INFO] Natal transfer module initialized
+[2025-05-20 18:40:43.962] [INFO] Detected potential Natal transfer message from 554896700391: anyone going to natal
+[2025-05-20 18:40:47.708] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message "anyone going to natal" is a question asking if someone is going to Natal, not an offer.
+[2025-05-20 18:40:47.851] [INFO] No matching rides found for query from 554896700391
+[2025-05-20 18:41:01.075] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow 8am
+[2025-05-20 18:41:06.307] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T08:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow 8am"
+}
+``` 
+
+*Note:* Assumes "tomorrow" is May 21, 2025, and that Natal refers to the airport destination. Adjust if context changes.
+[2025-05-20 18:41:06.311] [INFO] Saved rides data to file
+[2025-05-20 18:41:06.505] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T08:00:00
+[2025-05-20 18:41:58.340] [INFO] Detected potential Natal transfer message from 554896700391: anyone going to natal
+[2025-05-20 18:42:01.890] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if someone is going to Natal.
+[2025-05-20 18:42:01.966] [INFO] Sent available rides to group: 120363377778053850@g.us
+[2025-05-20 18:42:52.359] [INFO] Detected potential Natal transfer message from 554896700391: anyone coming from natal?
+[2025-05-20 18:42:55.544] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if someone is coming from Natal.
+[2025-05-20 18:42:55.619] [INFO] No matching rides found for query from 554896700391
+[2025-05-20 18:43:08.138] [INFO] Detected potential Natal transfer message from 554896700391: coming from natal next Friday 10pm
+[2025-05-20 18:43:13.763] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "From Airport",
+  "datetime": "2025-05-23T22:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "coming from natal next Friday 10pm"
+}
+```
+
+*Note:* Assumes "next Friday" refers to May 23, 2025. Adjust if the context suggests a different date.
+[2025-05-20 18:43:13.767] [INFO] Saved rides data to file
+[2025-05-20 18:43:13.842] [INFO] Registered new ride from 554896700391: From Airport on 2025-05-23T22:00:00
+[2025-05-20 18:43:24.244] [INFO] Detected potential Natal transfer message from 554896700391: anyone coming from natal
+[2025-05-20 18:43:28.147] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if someone is coming from Natal.
+[2025-05-20 18:43:28.223] [INFO] Sent available rides to group: 120363377778053850@g.us
+[2025-05-20 18:47:42.131] [INFO] Loaded rides data from file
+[2025-05-20 18:47:42.131] [INFO] Natal transfer module initialized
+[2025-05-20 18:55:17.256] [INFO] Loaded rides data from file
+[2025-05-20 18:55:17.257] [INFO] Natal transfer module initialized
+[2025-05-20 18:55:35.227] [INFO] Detected potential Natal transfer message from 554896700391: anyone coming from natal
+[2025-05-20 18:55:38.355] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is a question asking if anyone is coming from Natal.
+[2025-05-20 18:55:38.501] [INFO] Sent available rides to group: 120363377778053850@g.us
+[2025-05-20 18:55:43.881] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 18:56:00.397] [INFO] Detected potential Natal transfer message from 554896700391: going to natal 30/05 12PM
+[2025-05-20 18:56:05.597] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-30T12:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal 30/05 12PM"
+}
+``` 
+
+*Note:* Assumes Natal is the airport destination.
+[2025-05-20 18:56:05.601] [INFO] Saved rides data to file
+[2025-05-20 18:56:05.683] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-30T12:00:00
+[2025-05-20 18:56:09.100] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:07:04.404] [INFO] Loaded rides data from file
+[2025-05-20 19:07:04.405] [INFO] Natal transfer module initialized
+[2025-05-20 19:07:20.861] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:07:28.659] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow 10AM
+[2025-05-20 19:07:33.752] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T10:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow 10AM"
+}
+``` 
+
+*Note:* Assumes "tomorrow" is May 21, 2025, and that Natal is the airport destination.
+[2025-05-20 19:07:33.756] [INFO] Saved rides data to file
+[2025-05-20 19:07:34.032] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T10:00:00
+[2025-05-20 19:07:36.565] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:08:48.731] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:09:09.327] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:09:23.824] [INFO] Loaded rides data from file
+[2025-05-20 19:09:23.825] [INFO] Natal transfer module initialized
+[2025-05-20 19:09:26.215] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:09:37.632] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:09:49.813] [INFO] Saved rides data to file
+[2025-05-20 19:09:49.814] [INFO] Created new rides data file
+[2025-05-20 19:09:49.815] [INFO] Natal transfer module initialized
+[2025-05-20 19:09:54.381] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:10:14.579] [INFO] Detected potential Natal transfer message from 554896700391: I'm going to Natal in two days at 4PM
+[2025-05-20 19:10:18.844] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-22T16:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "I'm going to Natal in two days at 4PM"
+}
+```
+
+*Note:* Assumes "two days" refers to May 22, 2025, and that Natal is the airport destination.
+[2025-05-20 19:10:18.847] [INFO] Saved rides data to file
+[2025-05-20 19:10:19.135] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-22T16:00:00
+[2025-05-20 19:10:21.831] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:12:49.130] [INFO] Loaded rides data from file
+[2025-05-20 19:12:49.133] [INFO] Natal transfer module initialized
+[2025-05-20 19:12:52.755] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:13:03.108] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow 9am
+[2025-05-20 19:13:07.296] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T09:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow 9am"
+}
+```
+
+*Note:* Assumes "tomorrow" refers to May 21, 2025, and Natal is the airport destination.
+[2025-05-20 19:13:07.297] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net: sock.getContact is not a function
+[2025-05-20 19:13:07.301] [INFO] Saved rides data to file
+[2025-05-20 19:13:07.583] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T09:00:00
+[2025-05-20 19:13:11.133] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:16:07.423] [INFO] Loaded rides data from file
+[2025-05-20 19:16:07.424] [INFO] Natal transfer module initialized
+[2025-05-20 19:16:14.560] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow 7am
+[2025-05-20 19:16:18.788] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T07:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow 7am"
+}
+```
+
+*Note:* Assumes "tomorrow" refers to May 21, 2025, and Natal is the airport destination.
+[2025-05-20 19:16:18.792] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:16:18.798] [INFO] Saved rides data to file
+[2025-05-20 19:16:19.057] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T07:00:00
+[2025-05-20 19:16:26.167] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:26:54.940] [INFO] Loaded rides data from file
+[2025-05-20 19:26:54.941] [INFO] Natal transfer module initialized
+[2025-05-20 19:27:10.422] [INFO] Detected potential Natal transfer message from 554896700391: going to natal thursday next at 11pm
+[2025-05-20 19:27:14.984] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-22T23:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal thursday next at 11pm"
+}
+```
+
+*Note:* Assumes "next Thursday" refers to May 22, 2025, and Natal is the airport destination.
+[2025-05-20 19:27:14.986] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:27:14.992] [INFO] Saved rides data to file
+[2025-05-20 19:27:15.806] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-22T23:00:00
+[2025-05-20 19:27:19.481] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:28:15.915] [INFO] Detected potential Natal transfer message from 554896700391: Coming from natal to Pipa tomorrow 10am
+[2025-05-20 19:28:19.874] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "From Airport",
+  "datetime": "2025-05-21T10:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "Coming from natal to Pipa tomorrow 10am"
+}
+```
+
+*Note:* Assumes "tomorrow" refers to May 21, 2025, and the direction is from Natal to Pipa.
+[2025-05-20 19:28:19.877] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:28:19.879] [INFO] Saved rides data to file
+[2025-05-20 19:28:20.150] [INFO] Registered new ride from 554896700391: From Airport on 2025-05-21T10:00:00
+[2025-05-20 19:28:22.305] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:28:51.582] [INFO] Saved rides data to file
+[2025-05-20 19:28:51.585] [INFO] Created new rides data file
+[2025-05-20 19:28:51.589] [INFO] Natal transfer module initialized
+[2025-05-20 19:28:55.771] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:29:04.608] [INFO] Detected potential Natal transfer message from 554896700391: Anyone going to natal tomorrow?
+[2025-05-20 19:29:07.676] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if anyone is going to Natal tomorrow.
+[2025-05-20 19:29:07.759] [INFO] No matching rides found for query from 554896700391
+[2025-05-20 19:33:54.259] [INFO] Detected potential Natal transfer message from 554896700391: anyone going to natal tomorrow?
+[2025-05-20 19:33:58.568] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if anyone is going to Natal tomorrow.
+[2025-05-20 19:33:58.680] [INFO] No matching rides found for query from 554896700391
+[2025-05-20 19:39:47.822] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:51:20.438] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow am
+[2025-05-20 19:51:26.742] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T08:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow am"
+}
+```
+
+*Note:* Assumes "tomorrow" is May 21, 2025, and defaults to 8:00 AM if no exact time is specified. Adjust time if more context is given.
+[2025-05-20 19:51:26.745] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:51:26.752] [INFO] Saved rides data to file
+[2025-05-20 19:51:26.913] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T08:00:00
+[2025-05-20 19:51:35.250] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:54:26.458] [INFO] Loaded rides data from file
+[2025-05-20 19:54:26.459] [INFO] Natal transfer module initialized
+[2025-05-20 19:54:30.760] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:54:36.407] [INFO] Detected potential Natal transfer message from 554896700391: going to natal tomorrow 10am
+[2025-05-20 19:54:41.154] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-21T10:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal tomorrow 10am"
+}
+```
+[2025-05-20 19:54:41.158] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:54:41.163] [INFO] Saved rides data to file
+[2025-05-20 19:54:41.451] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-21T10:00:00
+[2025-05-20 19:54:46.040] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:57:41.215] [INFO] Loaded rides data from file
+[2025-05-20 19:57:41.216] [INFO] Natal transfer module initialized
+[2025-05-20 19:57:45.349] [INFO] Detected potential Natal transfer message from 554896700391: going to natal saturdau 20PM
+[2025-05-20 19:57:53.870] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-24T20:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal saturdau 20PM"
+}
+```
+
+*Note:* Assumes "saturdau" is a typographical error for "Saturday" and "20PM" refers to 8:00 PM. Given today's date is Tuesday, May 20, 2025, the upcoming Saturday is May 24, 2025.
+[2025-05-20 19:57:53.872] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:57:53.876] [INFO] Saved rides data to file
+[2025-05-20 19:57:54.570] [INFO] Registered new ride from 554896700391: To Airport on 2025-05-24T20:00:00
+[2025-05-20 19:57:58.939] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:59:07.948] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 19:59:15.371] [INFO] Detected potential Natal transfer message from 554896700391: coming from natal to pipa Friday 11pm
+[2025-05-20 19:59:21.429] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "From Airport",
+  "datetime": "2025-05-23T23:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "coming from natal to pipa Friday 11pm"
+}
+```
+
+*Note:* Assumes "Friday" refers to May 23, 2025.
+[2025-05-20 19:59:21.431] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:59:21.434] [INFO] Saved rides data to file
+[2025-05-20 19:59:21.751] [INFO] Registered new ride from 554896700391: From Airport on 2025-05-23T23:00:00
+[2025-05-20 19:59:33.432] [INFO] Loaded rides data from file
+[2025-05-20 19:59:33.433] [INFO] Natal transfer module initialized
+[2025-05-20 19:59:37.816] [INFO] Detected potential Natal transfer message from 554896700391: coming from natal to pipa Friday 10pm
+[2025-05-20 19:59:42.737] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "From Airport",
+  "datetime": "2025-05-23T22:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "coming from natal to pipa Friday 10pm"
+}
+```
+
+*Note:* Assumes "Friday" refers to May 23, 2025.
+[2025-05-20 19:59:42.738] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 19:59:42.742] [INFO] Saved rides data to file
+[2025-05-20 19:59:42.937] [INFO] Registered new ride from 554896700391: From Airport on 2025-05-23T22:00:00
+[2025-05-20 20:04:14.308] [INFO] Saved rides data to file
+[2025-05-20 20:04:14.309] [INFO] Created new rides data file
+[2025-05-20 20:04:14.313] [INFO] Natal transfer module initialized
+[2025-05-20 20:04:19.170] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 20:04:26.221] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 20:04:32.355] [INFO] Detected potential Natal transfer message from 554896700391: coming from natal to pipa Friday 10pm
+[2025-05-20 20:04:37.572] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "From Airport",
+  "datetime": "2025-05-23T22:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "coming from natal to pipa Friday 10pm"
+}
+```
+[2025-05-20 20:04:37.574] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 20:04:37.579] [INFO] Saved rides data to file
+[2025-05-20 20:04:37.741] [INFO] Registered new ride from 554896700391: From Natal on 2025-05-23T22:00:00
+[2025-05-20 20:04:51.309] [INFO] Detected potential Natal transfer message from 554896700391: going to natal this tuesday leaving 8am
+[2025-05-20 20:04:57.751] [INFO] ChatGPT parsed response: ```json
+{
+  "user": "User Name",
+  "direction": "To Airport",
+  "datetime": "2025-05-20T08:00:00",
+  "phoneNumber": "sender's number",
+  "original_msg": "going to natal this tuesday leaving 8am"
+}
+```
+
+*Note:* Assumes "this Tuesday" refers to today, May 20, 2025.
+[2025-05-20 20:04:57.752] [WARN] Could not retrieve contact name for 554896700391@s.whatsapp.net using sock.getName: sock.getName is not a function
+[2025-05-20 20:04:57.757] [INFO] Saved rides data to file
+[2025-05-20 20:04:57.887] [INFO] Registered new ride from 554896700391: To Natal on 2025-05-20T08:00:00
+[2025-05-20 20:05:04.031] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 20:06:38.432] [INFO] Loaded rides data from file
+[2025-05-20 20:06:38.433] [INFO] Natal transfer module initialized
+[2025-05-20 20:06:39.603] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 20:07:14.404] [INFO] Saved rides data to file
+[2025-05-20 20:07:14.405] [INFO] Created new rides data file
+[2025-05-20 20:07:14.406] [INFO] Natal transfer module initialized
+[2025-05-20 21:05:04.355] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 22:46:15.745] [INFO] Running cleanup of old rides
+[2025-05-20 22:46:16.393] [INFO] Sent all upcoming rides to group: 120363377778053850@g.us
+[2025-05-20 22:46:41.126] [INFO] Detected potential Natal transfer message from 554896700391: Anyone going to natal
+[2025-05-20 22:46:45.194] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if anyone is going to Natal.
+[2025-05-20 22:46:45.473] [INFO] No matching rides found for query from 554896700391
+[2025-05-20 22:46:57.217] [INFO] Detected potential Natal transfer message from 554896700391: Anyone going to natal on Wednesday
+[2025-05-20 22:47:01.341] [INFO] ChatGPT parsed response: *Intention:* question intention
+
+The message is asking if anyone is going to Natal on Wednesday.
+[2025-05-20 22:47:01.607] [INFO] No matching rides found for query from 554896700391
