@@ -13,7 +13,6 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
 - **Daily Astronomical Data Updates**: Fetches and sends sun/moon rising and seting times
 - **Daily Surfing Conditions**: Fetches and sends surfing conditions for Praia do Madeiro
-- **Daily Rain Forecast**: Fetches and sends alert for the day in case of rain forecast
 - **Natal/Pipa Ride Share**: Scans for Natal/Pipa transfer options by the members and organize it in a local agenda
 - **Throttling**: It throtlles messages in a timespam to prevent spammimg
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
