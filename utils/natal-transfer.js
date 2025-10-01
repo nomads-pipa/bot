@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { createFileLogger } = require('./file-logger'); // Assuming this path is correct for your setup
-const logger = createFileLogger('natal-transfer');
+const logger = createFileLogger();
 
 // WhatsApp ChatGPT contact - This should be the actual JID of your ChatGPT contact
 const CHATGPT_WHATSAPP = '18002428478@s.whatsapp.net'; // Example: +1 (800) 242-8478

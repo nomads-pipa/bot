@@ -1,5 +1,14 @@
 {
-  "toAirport": [],
+  "toAirport": [
+    {
+      "direction": "To Natal",
+      "datetime": "2025-10-01T17:12:00",
+      "original_msg": "going to natal today 17:12",
+      "user": "Jão",
+      "sender": "236674189656160@lid",
+      "timestamp": 1759349474756
+    }
+  ],
   "fromAirport": [],
-  "lastCleanup": 1759333312576
+  "lastCleanup": 1759348424715
 }
