@@ -68,7 +68,7 @@ function setupSchedulers(sock, chatId) {
     // Setting all schedulers
     scheduleTideData(sock, chatId);
     scheduleAstronomyData(sock, chatId);
-    scheduleWaveData(sock, chatId, '19:30');
+    // scheduleWaveData(sock, chatId, '19:30');
     
     console.log('📆 All schedulers initialized successfully');
 }

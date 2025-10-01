@@ -16,6 +16,7 @@ const NATAL_KEYWORDS = [
   'leaving to natal',
   'to natal airport',
   'going to pipa from natal',
+  'going from natal to pipa',
   'coming from natal',
   'coming to pipa from natal',
   'share a cab to natal',
@@ -110,14 +111,11 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
       return false;
     }
 
-    // Extract the numeric part of the sender's JID for display/fallback
-    const senderPhoneNumber = sender.split('@')[0]; 
-    
-    logger.info(`Detected potential Natal transfer message from ${senderPhoneNumber}: ${message}`);
+    logger.info(`Detected potential Natal transfer message from ${sender}: ${message}`);
 
     // Forward the message to ChatGPT for parsing and intent detection
-    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nIf it's affirmative (someone offering a ride), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "phoneNumber": "sender's number", "original_msg": "original message" }\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
-    
+    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nIf it's affirmative (someone offering a ride), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
+
     logger.info(`ChatGPT parsed response: ${parsedRide}`);
 
     // Process the response from ChatGPT
@@ -130,10 +128,10 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
         logger.info(`Sent available rides to group: ${groupId}`);
       } else {
         // If no matching rides, prompt the user to post their request
-        await sock.sendMessage(groupId, { 
-          text: `No matching rides found for your query.` 
+        await sock.sendMessage(groupId, {
+          text: `No matching rides found for your query.`
         });
-        logger.info(`No matching rides found for query from ${senderPhoneNumber}`);
+        logger.info(`No matching rides found for query from ${sender}`);
       }
       return true;
     } else {
@@ -143,53 +141,39 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
         const jsonMatch = parsedRide.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const rideInfo = JSON.parse(jsonMatch[0]);
-          
-          // Ensure phoneNumber is the full sender JID for consistent storage
-          if (!rideInfo.phoneNumber || rideInfo.phoneNumber === "sender's number") {
-            rideInfo.phoneNumber = sender; 
-          }
-          
+
           // Normalize the direction to "To Natal" or "From Natal"
           if (rideInfo.direction.toLowerCase().includes('to airport') || rideInfo.direction.toLowerCase().includes('to natal')) {
               rideInfo.direction = 'To Natal';
           } else if (rideInfo.direction.toLowerCase().includes('from airport') || rideInfo.direction.toLowerCase().includes('from natal')) {
               rideInfo.direction = 'From Natal';
           }
-          
-          let actualUserName = senderPhoneNumber; // Default to the numeric JID part
 
-          // Prioritize the pushName from the incoming message, if available
-          if (incomingPushName && incomingPushName.length > 0) {
-              actualUserName = incomingPushName;
-          } else {
-              // Attempt to get the display name using sock.getName(sender) as a fallback
-              // This is generally more reliable for getting the display name (push name, verified name, or contact name)
-              try {
-                const nameFromBaileys = await sock.getName(sender); 
-                if (nameFromBaileys) {
-                    actualUserName = nameFromBaileys;
-                }
-              } catch (nameError) {
-                  logger.warn(`Could not retrieve contact name for ${sender} using sock.getName: ${nameError.message}`);
-                  // Fallback to senderPhoneNumber if name retrieval fails
-              }
-          }
-          
+          // Use the pushName from the incoming message if available, otherwise use "Unknown User"
+          let actualUserName = incomingPushName && incomingPushName.length > 0
+            ? incomingPushName
+            : 'Unknown User';
+
           // Ensure user is populated, preferring the actual contact name over generic "User Name"
           if (!rideInfo.user || rideInfo.user === "User Name") {
-            rideInfo.user = actualUserName; 
+            rideInfo.user = actualUserName;
           }
+
+          // Remove phoneNumber field - we don't store phone numbers
+          delete rideInfo.phoneNumber;
           
           // Add the ride to the appropriate direction list
           // Use the normalized direction for storage logic
           if (rideInfo.direction === 'To Natal') {
             ridesData.toAirport.push({
               ...rideInfo,
+              sender: sender, // Store sender JID for mentions
               timestamp: Date.now() // Add timestamp for cleanup
             });
           } else if (rideInfo.direction === 'From Natal') {
             ridesData.fromAirport.push({
               ...rideInfo,
+              sender: sender, // Store sender JID for mentions
               timestamp: Date.now() // Add timestamp for cleanup
             });
           } else {
@@ -201,8 +185,8 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
           await saveRidesData();
           
           // Confirm ride registration to the user
-          await sock.sendMessage(groupId, { 
-            text: `✅ Your ride has been registered!\n\n*Direction:* ${rideInfo.direction}\n*Date/Time:* ${formatDateTime(rideInfo.datetime)}\n\nPeople looking for similar rides will be able to find you. Type !natal to check all rides`,
+          await sock.sendMessage(groupId, {
+            text: `✅ @${sender.split('@')[0]}'s ride has been registered!\n\n*Direction:* ${rideInfo.direction}\n*Date/Time:* ${formatDateTime(rideInfo.datetime)}\n\nPeople looking for similar rides will be able to find you. Type !natal to check all rides`,
             mentions: [sender] // Mention the sender
           });
           
@@ -360,8 +344,7 @@ function formatAvailableRides(rides) {
   if (toNatal.length > 0) {
     message += "*🏝 From Pipa to Natal:*\n";
     toNatal.forEach(ride => {
-      // Use displayUserName and formatPhoneNumber for proper display
-      message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)} (${formatPhoneNumber(ride.phoneNumber)})\n`;
+      message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)}\n`;
     });
     message += '\n';
   }
@@ -369,8 +352,7 @@ function formatAvailableRides(rides) {
   if (fromNatal.length > 0) {
     message += "*🌆 From Natal to Pipa:*\n";
     fromNatal.forEach(ride => {
-      // Use displayUserName and formatPhoneNumber for proper display
-      message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)} (${formatPhoneNumber(ride.phoneNumber)})\n`;
+      message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)}\n`;
     });
   }
   
@@ -405,43 +387,71 @@ function formatDateTime(dateStr) {
 }
 
 /**
- * Formats a phone number for display, hiding part of it for privacy.
+ * Checks if a phone number is valid (not a LID or empty).
+ * @param {string} phoneNumber - The phone number to check.
+ * @returns {boolean} - True if it's a valid phone number, false otherwise.
+ */
+function isValidPhoneNumber(phoneNumber) {
+  if (!phoneNumber) return false;
+
+  // Extract numeric part
+  const numberOnly = phoneNumber.includes('@') ? phoneNumber.split('@')[0] : phoneNumber;
+
+  // Check if it's a valid phone number:
+  // - Must be all digits
+  // - Brazilian numbers: 11-13 digits (with country code 55)
+  // - LIDs are typically 15+ digits or don't start with valid country codes
+  if (!/^\d+$/.test(numberOnly)) return false;
+
+  // Valid phone number length range (10-14 digits to cover various formats)
+  if (numberOnly.length < 10 || numberOnly.length > 14) return false;
+
+  // If it starts with 55 (Brazil), it should be exactly 12 or 13 digits
+  if (numberOnly.startsWith('55')) {
+    return numberOnly.length === 12 || numberOnly.length === 13;
+  }
+
+  // For other formats, accept 10-14 digit range
+  return true;
+}
+
+/**
+ * Formats a phone number for display.
  * Handles both plain numbers and WhatsApp JIDs.
  * @param {string} phoneNumber - The phone number or JID to format.
  * @returns {string} - The formatted phone number.
  */
 function formatPhoneNumber(phoneNumber) {
+  if (!phoneNumber) return 'Unknown';
+
   // Extract only the numeric part if it's a JID (e.g., '1234567890@s.whatsapp.net' -> '1234567890')
   const numberOnly = phoneNumber.includes('@') ? phoneNumber.split('@')[0] : phoneNumber;
 
-  // If the extracted part consists only of digits, format it
+  // If it's only digits, format as a phone number with proper country code
   if (/^\d+$/.test(numberOnly)) {
-    // Show first 4 digits, then '****', then last 2 digits
-    if (numberOnly.length >= 6) { // Ensure there are enough digits for this format
-      return numberOnly.substring(0, 4) + '****' + numberOnly.substring(numberOnly.length - 2);
+    // If it starts with 55 (Brazil country code) and is long enough
+    if (numberOnly.startsWith('55') && numberOnly.length >= 12) {
+      return `+${numberOnly}`;
     }
-    return numberOnly; // If too short, return the number as is
+    // Otherwise, prepend +55
+    return `+55${numberOnly}`;
   }
-  return phoneNumber; // If not a simple digit string, return original (e.g., if it's already masked)
+
+  // If not purely numeric (e.g., LID), return as-is
+  return numberOnly;
 }
 
 /**
  * Determines the best user name to display for a ride.
- * Prioritizes the 'user' field if available and not generic, otherwise uses the phone number.
  * @param {object} ride - The ride object.
  * @returns {string} - The user name to display.
  */
 function displayUserName(ride) {
-  // Prefer the 'user' field if it's a specific name and not the generic "User Name"
+  // Use the 'user' field if available and not the generic "User Name"
   if (ride.user && ride.user !== "User Name" && ride.user.length > 0) {
     return ride.user;
   }
-  // Fallback to the numeric part of the phone number (JID)
-  // Add "User " as a prefix for clarity if only the number is available
-  if (ride.phoneNumber) {
-    return `User ${ride.phoneNumber.split('@')[0]}`;
-  }
-  return "Unknown User"; // Last resort if no user or phone number info
+  return "Unknown User";
 }
 
 /**
@@ -537,61 +547,75 @@ async function handleNatalCommand(sock, groupId) {
   try {
     // Ensure old rides are cleaned up before displaying
     cleanupOldRides();
-    
+
     const now = new Date();
-    
+
     // Filter for rides that are still in the future
     const toNatalRides = ridesData.toAirport.filter(ride => {
       const rideDate = new Date(ride.datetime);
       return rideDate > now;
     });
-    
+
     const fromNatalRides = ridesData.fromAirport.filter(ride => {
       const rideDate = new Date(ride.datetime);
       return rideDate > now;
     });
-    
+
     // Sort rides by date and time in ascending order
     const sortByDateTime = (a, b) => {
       return new Date(a.datetime) - new Date(b.datetime);
     };
-    
+
     toNatalRides.sort(sortByDateTime);
     fromNatalRides.sort(sortByDateTime);
-    
+
+    // Collect all sender JIDs for mentions
+    const mentions = [];
+
     // Construct the message to display
     let message = "*🚕 Upcoming Natal Rides*\n\n";
-    
+
     // Add "From Pipa to Natal" rides
     if (toNatalRides.length > 0) {
       message += "*🏝 From Pipa to Natal:*\n";
       toNatalRides.forEach(ride => {
-        // Use displayUserName and formatPhoneNumber for proper display
-        message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)} (${formatPhoneNumber(ride.phoneNumber)})\n`;
+        if (ride.sender) {
+          message += `• ${formatDateTime(ride.datetime)} - @${ride.sender.split('@')[0]}\n`;
+          mentions.push(ride.sender);
+        } else {
+          message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)}\n`;
+        }
       });
       message += "\n";
     } else {
       message += "*🏝 From Pipa to Natal:* No upcoming rides\n\n";
     }
-    
+
     // Add "From Natal to Pipa" rides
     if (fromNatalRides.length > 0) {
       message += "*🌆 From Natal to Pipa:*\n";
       fromNatalRides.forEach(ride => {
-        // Use displayUserName and formatPhoneNumber for proper display
-        message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)} (${formatPhoneNumber(ride.phoneNumber)})\n`;
+        if (ride.sender) {
+          message += `• ${formatDateTime(ride.datetime)} - @${ride.sender.split('@')[0]}\n`;
+          mentions.push(ride.sender);
+        } else {
+          message += `• ${formatDateTime(ride.datetime)} - ${displayUserName(ride)}\n`;
+        }
       });
     } else {
       message += "*🌆 From Natal to Pipa:* No upcoming rides";
     }
-    
+
     message += "\n\nTo offer a ride, simply share your travel plans in the group.";
     message += "\nTo search for rides, just ask something like 'Anyone going to Natal tomorrow?'";
-    
-    // Send the compiled message to the group
-    await sock.sendMessage(groupId, { text: message });
+
+    // Send the compiled message to the group with mentions
+    await sock.sendMessage(groupId, {
+      text: message,
+      mentions: mentions // Add mentions array
+    });
     logger.info(`Sent all upcoming rides to group: ${groupId}`);
-    
+
     return true;
   } catch (error) {
     logger.error(`Error handling !natal command: ${error}`);
@@ -614,4 +638,3 @@ module.exports = {
   isNatalTransferMessage,
   handleNatalCommand // Export handleNatalCommand as well if it's called externally
 };
-

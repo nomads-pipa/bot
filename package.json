@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.13",
+    "@whiskeysockets/baileys": "^6.7.18",
     "dotenv": "^16.4.7",
     "moment-timezone": "^0.5.47",
     "qrcode-terminal": "^0.12.0",

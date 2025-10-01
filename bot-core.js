@@ -2,6 +2,7 @@ const makeWASocket = require('@whiskeysockets/baileys').default;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const moment = require('moment-timezone');
+const qrcode = require('qrcode-terminal'); // Add this import
 require('dotenv').config();
 
 const { 
@@ -36,13 +37,22 @@ async function startBot() {
         auth: state,
         logger: pinoLogger,
         version,
-        printQRInTerminal: true
+        // Remove this deprecated option
+        // printQRInTerminal: true
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+        
+        // Handle QR code display
+        if (qr) {
+            console.log('📱 QR Code received. Please scan with your WhatsApp mobile app:');
+            qrcode.generate(qr, { small: true });
+            logger.info('QR Code displayed in terminal');
+        }
+        
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut);
             logger.error('Connection closed due to', lastDisconnect.error, ', reconnecting:', shouldReconnect);
@@ -88,6 +98,8 @@ async function startBot() {
 
             // Set up message handler for all groups
             setupMessageHandler(sock, groupMap);
+        } else if (connection === 'connecting') {
+            logger.info('🔄 Connecting to WhatsApp...');
         }
     });
 
@@ -184,7 +196,8 @@ function setupMessageHandler(sock, groupMap) {
                         logger.info(`📩 Received message in group "${groupName}": ${messageContent}`);
 
                         // First check if this is a Natal transfer message
-                        const isNatalTransfer = await processNatalTransferMessage(sock, messageContent, sender, remoteJid);
+                        const pushName = message.pushName || '';
+                        const isNatalTransfer = await processNatalTransferMessage(sock, messageContent, sender, remoteJid, pushName);
                         
                         // If not a Natal transfer message, check for other keyword matches
                         if (!isNatalTransfer) {
