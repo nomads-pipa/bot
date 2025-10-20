@@ -9,20 +9,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
+        
       - name: Add SSH private key to agent
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
-
-- name: Deploy to Server
-  env:
-    SERVER_USER: ${{ secrets.SERVER_USER }}
-    SERVER_IP: ${{ secrets.SERVER_IP }}
-    APP_DIR: ${{ secrets.APP_DIR }}
-  run: |
-    ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} << ENDSSH
-      cd ${APP_DIR}
-      git pull origin main
-      sudo pm2 restart pipa-dn-bot.js
-    ENDSSH
+          
+      - name: Deploy to Server
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} << ENDSSH
+            cd ${APP_DIR}
+            git pull origin main
+            sudo pm2 restart pipa-dn-bot.js
+          ENDSSH
