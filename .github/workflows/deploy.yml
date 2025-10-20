@@ -1,0 +1,30 @@
+name: Deploy Ubuntu Server Project
+
+on:
+  push:
+    branches:
+      - main  # Change to your main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Add SSH private key to agent
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}  # Ensure this secret contains the new private key
+
+      - name: Deploy to Server
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa $SERVER_USER@$SERVER_IP
+          cd $APP_DIR &&
+          git remote set-url origin git@github.com:yourgithubuser/yourgithubrepo.git &&  # Dont forget to change this!!!
+          sudo pm2 restart pipa-dn-bot.js "

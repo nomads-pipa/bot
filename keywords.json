@@ -40,6 +40,14 @@
         "response": "Ready to hit the sand and play some beach tennis? 🏖️🎾 Check out our guide: [https://docs.google.com/document/d/12E7UVMro9OzccqmaKdOyp45YID9a11mGsNHzMxTf5gQ/edit?usp=drive_link]"
     },
     {
+        "keywords": ["basketball"],
+        "response": "Did you really think there was not gonna be an option for basketball? ⛹🏼‍♀️🏀⛹🏽 Check out our guide: [https://docs.google.com/document/d/1gTUBuqJ3oyS8C0EQg1FKfbBCoV0lv_rXA3ChyT_aeGo/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["football match", "soccer match", "football", "altinha classes"],
+        "response": "Wanting to show your skills playing football? ⚽ Check out our guide: [https://docs.google.com/document/d/192FWf91cd2t77Yh8VPVWvCDk7Vtvd4JF8Vb2nCujIF0/edit?usp=drivesdk]"
+    },
+    {
         "keywords": ["restaurant", "restaurants", "dinner options", "lunch options", "food delivery", "places to eat"],
         "response": "Craving some delicious food? 😋🍽️ Explore Pipa's vibrant restaurant scene with our guide: [https://docs.google.com/document/d/1cmu5YrAiTeH_ofy2C2eMmW0CGqH7RRg_owS4FzC_Ono/edit?usp=drive_link]"
     },
@@ -86,6 +94,30 @@
     {
         "keywords": ["turtle", "turtles"],
         "response": "I like turtles 🐢"
+    },
+    {
+        "keywords": ["exchange", "cambio"],
+        "response": "💸 Looking to exchange your money in Pipa?  [https://docs.google.com/document/d/1-zxtOWPk0GAAYU_xCM4SIKT44KfRUK6jPMV5_QnJh-M/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["courier", "couriers", "dhl"],
+        "response": "📦 Need to send or receive something from abroad? Here are some courier/DHL contacts: [https://docs.google.com/document/d/1AP_eRPPLTR7XVBJA-2ea1UMMIwlSckkNQBumyRib7g4/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["discounts"],
+        "response": "💰🤑 Trying to save some money? Check out these exclusive discounts for the Digital Nomad Group: [https://docs.google.com/document/d/1rBlMjUcvu8X06eXHA06TZK22nv3qqi9GH0uejUoB8PE/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["surf classes","surfing classes","rent surf board","surfing pictures","pictures surfing"],
+        "response": "🏄🏽‍♀️🌊🏄🏻‍♂️ If you want to learn to surf while in Pipa, rent a board, or some cool footage/pictures of your sessions, check out the info here: [https://docs.google.com/document/d/12_tQw7GJ9aFi9PKwSOWgss1E1e_bvaGi9RygNLyXZr4/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["massage","hairsallon","hairdresser","barbershop", "fisiotherapist", "nails designer"],
+        "response": "💆🏾‍♀️💅🏼💇🏾 Looking to get more beautiful or inf need of a good massage to relax? [https://docs.google.com/document/d/1h4VNoPNGN4CDo6yJl72J6X_eBzl41hFykUbsWu-V2N0/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["weekly nightlife","partying schedule"],
+        "response": "🎉🪩 Wanna party? Pipa usually follows this schedule: [https://docs.google.com/document/d/1tEeUH4ItMpdjT_Wk_LExEKcxW2IFxZpuLcr9-_EbPPk/edit?usp=drivesdk]"
     },
     {
         "keywords": ["#$%@"],
