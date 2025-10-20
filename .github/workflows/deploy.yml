@@ -9,12 +9,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
       - name: Add SSH private key to agent
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
-      
+
 - name: Deploy to Server
   env:
     SERVER_USER: ${{ secrets.SERVER_USER }}
