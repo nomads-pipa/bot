@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@anthropic-ai/claude-code": "^2.0.42",
     "@whiskeysockets/baileys": "^6.7.18",
     "dotenv": "^16.4.7",
     "moment-timezone": "^0.5.47",

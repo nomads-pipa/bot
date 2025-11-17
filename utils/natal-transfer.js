@@ -11,23 +11,7 @@ const RIDES_FILE = path.join(process.cwd(), 'data', 'natal-rides.json');
 
 // Keywords to detect Natal transfer messages
 const NATAL_KEYWORDS = [
-  'going to natal',
-  'going to the airport',
-  'leaving to natal',
-  'to natal airport',
-  'going to pipa from natal',
-  'going from natal to pipa',
-  'coming from natal',
-  'coming to pipa from natal',
-  'share a cab to natal',
-  'share a taxi to natal',
-  'share ride to natal',
-  'airport transfer',
-  'natal tomorrow',
-  'natal today',
-  'leaving natal',
-  'arriving in natal',
-  'natal airport'
+  'Natal'
 ];
 
 // Initialize rides data structure
@@ -114,26 +98,15 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
     logger.info(`Detected potential Natal transfer message from ${sender}: ${message}`);
 
     // Forward the message to ChatGPT for parsing and intent detection
-    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nIf it's affirmative (someone offering a ride), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
+    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nIf it's affirmative (someone offering a ride, saying that they are arriving in Natal or Pipa), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
 
     logger.info(`ChatGPT parsed response: ${parsedRide}`);
 
     // Process the response from ChatGPT
     if (parsedRide.includes('question intention')) {
-      // If ChatGPT indicates a question, find and respond with available rides
-      const availableRides = findMatchingRides(message);
-      if (availableRides.length > 0) {
-        const responseMsg = formatAvailableRides(availableRides);
-        await sock.sendMessage(groupId, { text: responseMsg });
-        logger.info(`Sent available rides to group: ${groupId}`);
-      } else {
-        // If no matching rides, prompt the user to post their request
-        await sock.sendMessage(groupId, {
-          text: `No matching rides found for your query.`
-        });
-        logger.info(`No matching rides found for query from ${sender}`);
-      }
-      return true;
+      // If ChatGPT indicates a question, just acknowledge without showing the board
+      logger.info(`Detected question intention from ${sender}, not showing board`);
+      return false; // Don't process as a natal transfer, let it be handled as a regular message
     } else {
       // If ChatGPT indicates an affirmation (someone offering a ride)
       try {

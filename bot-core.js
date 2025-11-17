@@ -184,6 +184,9 @@ function setupMessageHandler(sock, groupMap) {
     // Create a Set of group IDs for faster lookups
     const groupIds = new Set(Object.values(groupMap).filter(id => id !== null));
 
+    // Store bot start time to ignore old messages on reconnection
+    const botStartTime = Date.now();
+
     sock.ev.on('messages.upsert', async (msg) => {
         if (msg.type === 'notify') {
             for (const message of msg.messages) {
@@ -197,6 +200,20 @@ function setupMessageHandler(sock, groupMap) {
                     continue; // Skip self-messages only in groups
                 }
                 if (!message.message) continue;
+
+                // Get message timestamp (in seconds, convert to milliseconds)
+                const messageTimestamp = message.messageTimestamp
+                    ? (typeof message.messageTimestamp === 'number'
+                        ? message.messageTimestamp * 1000
+                        : parseInt(message.messageTimestamp) * 1000)
+                    : Date.now();
+
+                // Skip messages that are older than when the bot started (replayed messages)
+                // Allow a 10 second buffer for clock skew
+                if (messageTimestamp < (botStartTime - 10000)) {
+                    logger.info(`⏭️ Skipping old message from ${sender} (sent ${Math.round((botStartTime - messageTimestamp) / 1000)}s before bot start)`);
+                    continue;
+                }
 
                 const messageContent = message.message.conversation ||
                                      message.message.extendedTextMessage?.text;

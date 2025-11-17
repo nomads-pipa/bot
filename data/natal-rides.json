@@ -1,22 +1,47 @@
 {
   "toAirport": [
     {
-      "user": "Natállya",
+      "user": "Diego",
       "direction": "To Natal",
-      "datetime": "2025-10-24T01:00:00",
-      "original_msg": "I’m going to the airport on the 24th at 1am if anyone wanna share the transfer lmk",
-      "sender": "231232516444274@lid",
-      "timestamp": 1759526138998
+      "datetime": "2025-11-15T21:30:00",
+      "original_msg": "From Pipa to Natal, Saturday, Nov 15, 21:30 hs",
+      "sender": "270905112584427@lid",
+      "timestamp": 1762788324202
     },
     {
-      "user": "Dan",
+      "user": "Facu La Grotta 🦜🧙🏻‍♂️",
       "direction": "To Natal",
-      "datetime": "2025-10-18T12:00:00",
-      "original_msg": "Also going to Natal Saturday 12-2 PM if anyone going",
-      "sender": "170372913729704@lid",
-      "timestamp": 1760450653393
+      "datetime": "2025-11-17T20:30:00",
+      "original_msg": "I'm going to Natal airport on Monday at 8:30pm in case someone wants to share the ride",
+      "sender": "255413215825981@lid",
+      "timestamp": 1763136357342
+    },
+    {
+      "user": "David Vittori",
+      "direction": "To Natal",
+      "datetime": "2025-11-19T08:45:00",
+      "original_msg": "I'm going to Natal airport on Wednesday at 8:45am in case someone wants to share the ride",
+      "sender": "208606712602670@lid",
+      "timestamp": 1763166489712
     }
   ],
-  "fromAirport": [],
-  "lastCleanup": 1760878388696
+  "fromAirport": [
+    {
+      "direction": "From Natal",
+      "datetime": "2025-11-27T02:00:00",
+      "original_msg": "I’m going from Natal Airport to pipa on the 27th of November at 2am if anyone wanna share a ride",
+      "user": "Natállya",
+      "sender": "231232516444274@lid",
+      "timestamp": 1761311508589
+    },
+    {
+      "user": "Alina",
+      "direction": "From Natal",
+      "datetime": "2025-12-04T12:00:00",
+      "original_msg": "I’m driving from Natal to Pipa on December 4th between 12-1pm if anyone wants to ride share 🫶🏼",
+      "sender": "271557930831905@lid",
+      "timestamp": 1762784360520
+    }
+  ],
+  "lastCleanup": 1763330345162
 }

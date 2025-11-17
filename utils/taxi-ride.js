@@ -34,17 +34,21 @@ const conversationTimeouts = new Map();
 // Store user to ride mapping for cancellations: Map<userJid, rideId>
 const userRideMap = new Map();
 
+// Store active feedback timeouts: Map<rideId, {passengerTimeoutId, driverTimeoutId}>
+const feedbackTimeouts = new Map();
+
 // Timeout constants (in milliseconds)
 const CONVERSATION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const WARNING_TIME = 2.5 * 60 * 1000; // 2.5 minutes
+const FEEDBACK_DELAY = 60 * 60 * 1000; // 1 hour
 
 // Translations for different languages
 const TRANSLATIONS = {
   en: {
     timeoutWarning: '⚠️ Warning: You have 2 minutes and 30 seconds left to answer, or your session will timeout and you\'ll need to start over.',
     timeoutExpired: '⏰ Your session has timed out due to inactivity. Please send "taxi" or "mototaxi" again to start a new ride request.',
-    vehicleType: '🚖 What type of ride do you need?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Taxi 🚗 (Coming soon)',
-    vehicleTypeInvalid: '❌ Please select 1 for Mototaxi or 2 for Taxi',
+    vehicleType: '🚖 What type of ride do you need?\n\n1️⃣ - Mototaxi 🏍️',
+    vehicleTypeInvalid: '❌ Please select 1 for Mototaxi',
     greeting: '🚖 I\'ll help you find a ride - please answer some questions.',
     name: 'What is your name?',
     phone: '📱 What is your phone number? (include country code, e.g., +55 84 9 1234-5678)',
@@ -97,13 +101,33 @@ Please request another ride if you still need one. Just send "taxi" or "mototaxi
 
 *Ride #${rideId}*
 
-To cancel this ride, reply with: *cancelar ${rideId}*`
+To cancel this ride, reply with: *cancelar ${rideId}*`,
+    feedbackPassenger: (rideId) => `🌟 *How was your ride experience?*
+
+We hope you had a great trip! We'd love to hear about your experience with ride #${rideId}.
+
+Your feedback helps us improve our service for everyone in Pipa.
+
+📝 Please share your feedback here:
+https://forms.gle/vJLiACiQr3sq4aPFA
+
+Thank you for using our taxi service! 🚖`,
+    feedbackDriver: (rideId) => `🌟 *How was your ride experience?*
+
+Thank you for completing ride #${rideId}! We'd love to hear about your experience.
+
+Your feedback helps us improve our service for everyone in Pipa.
+
+📝 Please share your feedback here:
+https://forms.gle/vJLiACiQr3sq4aPFA
+
+Thank you for being part of our driver community! 🚖`
   },
   pt: {
     timeoutWarning: '⚠️ Aviso: Você tem 2 minutos e 30 segundos restantes para responder, ou sua sessão expirará e você precisará começar de novo.',
     timeoutExpired: '⏰ Sua sessão expirou por inatividade. Por favor envie "taxi" ou "mototaxi" novamente para iniciar uma nova solicitação de corrida.',
-    vehicleType: '🚖 Que tipo de corrida você precisa?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Táxi 🚗 (Em breve)',
-    vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi ou 2 para Táxi',
+    vehicleType: '🚖 Que tipo de corrida você precisa?\n\n1️⃣ - Mototaxi 🏍️',
+    vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi',
     greeting: '🚖 Vou te ajudar a encontrar uma corrida - por favor responda algumas perguntas.',
     name: 'Qual é o seu nome?',
     phone: '📱 Qual é o seu número de telefone? (inclua código do país, ex: +55 84 9 1234-5678)',
@@ -156,7 +180,27 @@ Por favor solicite outra corrida se ainda precisar. Basta enviar "taxi" ou "moto
 
 *Corrida #${rideId}*
 
-Para cancelar esta corrida, responda com: *cancelar ${rideId}*`
+Para cancelar esta corrida, responda com: *cancelar ${rideId}*`,
+    feedbackPassenger: (rideId) => `🌟 *Como foi sua experiência na corrida?*
+
+Esperamos que você tenha tido uma ótima viagem! Gostaríamos de saber sobre sua experiência na corrida #${rideId}.
+
+Seu feedback nos ajuda a melhorar nosso serviço para todos em Pipa.
+
+📝 Por favor, compartilhe seu feedback aqui:
+https://forms.gle/vJLiACiQr3sq4aPFA
+
+Obrigado por usar nosso serviço de táxi! 🚖`,
+    feedbackDriver: (rideId) => `🌟 *Como foi sua experiência na corrida?*
+
+Obrigado por completar a corrida #${rideId}! Gostaríamos de saber sobre sua experiência.
+
+Seu feedback nos ajuda a melhorar nosso serviço para todos em Pipa.
+
+📝 Por favor, compartilhe seu feedback aqui:
+https://forms.gle/vJLiACiQr3sq4aPFA
+
+Obrigado por fazer parte da nossa comunidade de motoristas! 🚖`
   }
 };
 
@@ -217,6 +261,126 @@ function validatePhoneNumber(phone) {
   const phoneRegex = /^\+[1-9]\d{8,14}$/;
 
   return phoneRegex.test(cleaned);
+}
+
+async function scheduleFeedbackMessages(sock, rideId, passengerJid, driverJid, language) {
+  logger.info(`⏰ Scheduling feedback messages for ride ${rideId} in 1 hour`);
+
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+
+  // Schedule feedback message for passenger
+  const passengerTimeoutId = setTimeout(async () => {
+    try {
+      await sock.sendMessage(passengerJid, {
+        text: t.feedbackPassenger(rideId)
+      });
+      logger.info(`✅ Sent feedback request to passenger for ride ${rideId}`);
+
+      // Mark feedback as sent in the ride data
+      const ride = ridesData.rides.find(r => r.id === rideId);
+      if (ride) {
+        ride.feedbackSent = true;
+        await saveRidesData();
+      }
+    } catch (error) {
+      logger.error(`❌ Failed to send feedback to passenger for ride ${rideId}:`, error);
+    }
+  }, FEEDBACK_DELAY);
+
+  // Schedule feedback message for driver
+  const driverTimeoutId = setTimeout(async () => {
+    try {
+      await sock.sendMessage(driverJid, {
+        text: t.feedbackDriver(rideId)
+      });
+      logger.info(`✅ Sent feedback request to driver for ride ${rideId}`);
+    } catch (error) {
+      logger.error(`❌ Failed to send feedback to driver for ride ${rideId}:`, error);
+    }
+  }, FEEDBACK_DELAY);
+
+  // Store the timeout IDs
+  feedbackTimeouts.set(rideId, {
+    passengerTimeoutId,
+    driverTimeoutId
+  });
+
+  logger.info(`⏰ Feedback messages scheduled for ride ${rideId}`);
+}
+
+function clearFeedbackTimeouts(rideId) {
+  const timeouts = feedbackTimeouts.get(rideId);
+  if (timeouts) {
+    if (timeouts.passengerTimeoutId) {
+      clearTimeout(timeouts.passengerTimeoutId);
+    }
+    if (timeouts.driverTimeoutId) {
+      clearTimeout(timeouts.driverTimeoutId);
+    }
+    feedbackTimeouts.delete(rideId);
+    logger.info(`⏰ Cleared feedback timeouts for ride ${rideId}`);
+  }
+}
+
+async function restoreFeedbackTimeouts(sock) {
+  const now = Date.now();
+  let restoredCount = 0;
+  let sentCount = 0;
+  let skippedCount = 0;
+
+  for (const ride of ridesData.rides) {
+    // Only process completed rides that have both a driver and passenger
+    if (ride.status !== 'completed' || !ride.driver || !ride.completedAt) continue;
+
+    // Skip rides that already had feedback sent
+    if (ride.feedbackSent === true) {
+      skippedCount++;
+      continue;
+    }
+
+    const language = ride.language || 'en';
+
+    // Calculate when feedback should be sent
+    const feedbackTime = ride.completedAt + FEEDBACK_DELAY;
+    const timeRemaining = feedbackTime - now;
+
+    if (timeRemaining <= 0) {
+      // Feedback time has passed - send immediately
+      logger.info(`📧 Sending overdue feedback requests for ride ${ride.id} (completed ${Math.round((now - ride.completedAt) / 60000)} minutes ago)`);
+
+      const t = TRANSLATIONS[language];
+      try {
+        await sock.sendMessage(ride.user.jid, {
+          text: t.feedbackPassenger(ride.id)
+        });
+        logger.info(`✅ Sent feedback request to passenger for ride ${ride.id}`);
+      } catch (error) {
+        logger.error(`❌ Failed to send feedback to passenger for ride ${ride.id}:`, error);
+      }
+
+      try {
+        await sock.sendMessage(ride.driver.jid, {
+          text: t.feedbackDriver(ride.id)
+        });
+        logger.info(`✅ Sent feedback request to driver for ride ${ride.id}`);
+      } catch (error) {
+        logger.error(`❌ Failed to send feedback to driver for ride ${ride.id}:`, error);
+      }
+
+      // Mark feedback as sent
+      ride.feedbackSent = true;
+      await saveRidesData();
+
+      sentCount++;
+    } else {
+      // Feedback still pending - reschedule
+      await scheduleFeedbackMessages(sock, ride.id, ride.user.jid, ride.driver.jid, language);
+      logger.info(`⏰ Restored feedback timeout for ride ${ride.id} - will send in ${Math.round(timeRemaining / 60000)} minutes`);
+      restoredCount++;
+    }
+  }
+
+  logger.info(`🔄 Feedback timeout restoration complete: ${restoredCount} restored, ${sentCount} sent immediately, ${skippedCount} already sent`);
 }
 
 async function restoreRideTimeouts(sock) {
@@ -284,6 +448,7 @@ async function initTaxiRide(sock) {
   // Restore timeouts for pending rides after a restart
   if (sock) {
     await restoreRideTimeouts(sock);
+    await restoreFeedbackTimeouts(sock);
   }
 
   logger.info('Taxi ride module initialized');
@@ -305,6 +470,16 @@ function getDriverNumbers(vehicleType) {
       const cleaned = num.replace(/^\+/, '');
       return `${cleaned}@s.whatsapp.net`;
     });
+}
+
+function isRegisteredDriver(sender) {
+  // Get all registered driver numbers from both mototaxi and taxi contacts
+  const mototaxiDrivers = getDriverNumbers('mototaxi');
+  const taxiDrivers = getDriverNumbers('taxi');
+  const allDrivers = [...mototaxiDrivers, ...taxiDrivers];
+
+  // Check if the sender is in the list of registered drivers
+  return allDrivers.includes(sender);
 }
 
 function createRide(sender, userInfo, vehicleType, language) {
@@ -450,8 +625,6 @@ async function processTaxiConversation(sock, message, sender) {
       const vehicleChoice = messageContent?.trim();
       if (vehicleChoice === '1') {
         conversation.vehicleType = 'mototaxi';
-      } else if (vehicleChoice === '2') {
-        conversation.vehicleType = 'taxi';
       } else {
         await sock.sendMessage(sender, {
           text: t.vehicleTypeInvalid
@@ -652,7 +825,7 @@ async function broadcastRideToDrivers(sock, sender, conversation) {
 
 *Corrida #${ride.id}*
 
-Para aceitar esta corrida, responda: *${ride.id}* ou *aceitar corrida ${ride.id}*
+*Para aceitar, escreva: aceitar ${ride.id}*
 
 🤖 Esta é uma mensagem automática do sistema.`;
 
@@ -698,6 +871,14 @@ async function processDriverResponse(sock, message, sender) {
                          message.message.extendedTextMessage?.text;
 
   if (!messageContent) return false;
+
+  // Check if driver sent only "aceitar" without a ride number
+  if (messageContent.trim().toLowerCase() === 'aceitar') {
+    await sock.sendMessage(sender, {
+      text: '⚠️ Por favor, inclua o número da corrida que deseja aceitar.\n\nExemplo: *aceitar 27*'
+    });
+    return true;
+  }
 
   // Match patterns like "aceitar corrida 1", "aceitar 1", or just "1"
   const acceptanceRegex = /^(?:aceitar\s+(?:corrida\s+)?)?(\d+)$/i;
@@ -758,6 +939,10 @@ async function processDriverResponse(sock, message, sender) {
   // Store the driver JID before any other operations
   const driverJid = sender;
   const passengerJid = ride.user.jid;
+
+  // Schedule feedback messages for 1 hour after ride completion
+  const rideLanguage = ride.language || 'en';
+  await scheduleFeedbackMessages(sock, ride.id, passengerJid, driverJid, rideLanguage);
 
   // Send confirmation to driver
   await sock.sendMessage(driverJid, {
@@ -868,6 +1053,9 @@ async function handleUserCancellation(sock, message, sender) {
     activeRideTimeouts.delete(rideId);
   }
 
+  // Clear feedback timeouts if exists (in case ride was already accepted)
+  clearFeedbackTimeouts(rideId);
+
   // Remove user mapping
   userRideMap.delete(sender);
 
@@ -948,6 +1136,9 @@ async function handleDriverCancellation(sock, message, sender) {
   ride.cancelledAt = Date.now();
   ride.updatedAt = Date.now();
 
+  // Clear feedback timeouts if exists (since ride was accepted but driver is cancelling)
+  clearFeedbackTimeouts(rideId);
+
   // Remove user mapping
   userRideMap.delete(ride.user.jid);
 
@@ -1001,7 +1192,7 @@ async function handleDriverCancellation(sock, message, sender) {
 
 *Corrida #${ride.id}*
 
-Para aceitar esta corrida, responda: *${ride.id}* ou *aceitar corrida ${ride.id}*
+*Para aceitar, escreva: aceitar ${ride.id}*
 
 🤖 Esta é uma mensagem automática do sistema.`;
 
@@ -1041,7 +1232,16 @@ Para aceitar esta corrida, responda: *${ride.id}* ou *aceitar corrida ${ride.id}
   return true;
 }
 
+// WhatsApp ChatGPT contact - should be excluded from taxi ride processing
+const CHATGPT_WHATSAPP = '18002428478@s.whatsapp.net';
+
 async function processTaxiMessage(sock, message, sender) {
+  // Ignore messages from ChatGPT contact to prevent false triggers
+  // when ChatGPT responds with JSON containing taxi-related keywords
+  if (sender === CHATGPT_WHATSAPP) {
+    return false;
+  }
+
   const messageContent = message.message.conversation ||
                          message.message.extendedTextMessage?.text;
 
@@ -1063,7 +1263,14 @@ async function processTaxiMessage(sock, message, sender) {
   if (isDriverResponse) return true;
 
   // Finally check if this is a new taxi/mototaxi request
+  // But ONLY if the sender is NOT a registered driver (to prevent driver auto-replies from triggering passenger flow)
   if (messageContent && isTaxiRequest(messageContent)) {
+    // Skip if this is a message from a registered driver
+    if (isRegisteredDriver(sender)) {
+      logger.info(`⏭️ Ignoring taxi/mototaxi keyword from registered driver ${sender} (likely auto-reply)`);
+      return false;
+    }
+
     await startRideRequest(sock, sender);
     return true;
   }
@@ -1073,19 +1280,45 @@ async function processTaxiMessage(sock, message, sender) {
 
 async function cleanupOldRides() {
   const ONE_HOUR = 60 * 60 * 1000;
+  const TWO_HOURS = 2 * 60 * 60 * 1000; // Keep completed rides for 2 hours to allow feedback to be sent
   const now = Date.now();
 
   const originalCount = ridesData.rides.length;
+  const removedRideIds = [];
+
   ridesData.rides = ridesData.rides.filter(ride => {
-    // Keep rides that are less than 1 hour old AND still pending
-    // Remove old pending rides and all completed rides
-    if (ride.status === 'completed') return false;
-    return (now - ride.createdAt) < ONE_HOUR;
+    // Keep completed rides for 2 hours (to allow 1 hour for feedback + buffer)
+    if (ride.status === 'completed' && ride.completedAt) {
+      const shouldKeep = (now - ride.completedAt) < TWO_HOURS;
+      if (!shouldKeep) {
+        removedRideIds.push(ride.id);
+        // Clear any pending feedback timeouts for this ride
+        clearFeedbackTimeouts(ride.id);
+      }
+      return shouldKeep;
+    }
+
+    // Keep pending rides that are less than 1 hour old
+    if (ride.status === 'pending') {
+      const shouldKeep = (now - ride.createdAt) < ONE_HOUR;
+      if (!shouldKeep) {
+        removedRideIds.push(ride.id);
+      }
+      return shouldKeep;
+    }
+
+    // Remove expired and cancelled rides older than 1 hour
+    const ageBasedOnStatus = ride.expiredAt || ride.cancelledAt || ride.createdAt;
+    const shouldKeep = (now - ageBasedOnStatus) < ONE_HOUR;
+    if (!shouldKeep) {
+      removedRideIds.push(ride.id);
+    }
+    return shouldKeep;
   });
 
   if (ridesData.rides.length !== originalCount) {
     await saveRidesData();
-    logger.info(`🧹 Cleaned up ${originalCount - ridesData.rides.length} old taxi rides`);
+    logger.info(`🧹 Cleaned up ${originalCount - ridesData.rides.length} old taxi rides (IDs: ${removedRideIds.join(', ')})`);
   }
 
   ridesData.lastCleanup = now;
