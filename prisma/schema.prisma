@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - tracks all passengers/users with their profile
+model User {
+  id                Int      @id @default(autoincrement())
+  jid               String   @unique  // WhatsApp JID (unique identifier)
+  name              String?
+  phone             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  taxiRides         TaxiRide[]        @relation("UserRides")
+  natalRides        NatalRide[]       @relation("UserNatalRides")
+
+  @@index([jid])
+  @@map("users")
+}
+
+// Driver model - tracks all drivers
+model Driver {
+  id                Int      @id @default(autoincrement())
+  jid               String   @unique  // WhatsApp JID (unique identifier)
+  name              String?
+  phone             String?
+  cpf               String?  // Brazilian CPF (Tax ID)
+  isActive          Boolean  @default(true)
+  isTaxiDriver      Boolean  @default(false)
+  isMotoTaxiDriver  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  rideAssignments   RideAssignment[]
+
+  @@index([jid])
+  @@index([isTaxiDriver])
+  @@index([isMotoTaxiDriver])
+  @@map("drivers")
+}
+
+// TaxiRide model - tracks taxi/mototaxi ride requests
+model TaxiRide {
+  id                Int      @id @default(autoincrement())
+  status            String   // 'pending', 'completed', 'expired', 'cancelled'
+  vehicleType       String   // 'taxi' or 'mototaxi'
+  language          String   // 'en' or 'pt'
+
+  // User reference
+  userId            Int
+  user              User     @relation("UserRides", fields: [userId], references: [id])
+
+  // Location details
+  locationText      String?
+  locationLat       Float?
+  locationLng       Float?
+  destination       String?
+  identifier        String?  // Visual identifier
+  waitTime          String?  // Minutes
+
+  // Retry tracking
+  retryAttempts     Int      @default(0)  // Number of times passenger retried after expiration
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+  expiredAt         DateTime?
+  cancelledAt       DateTime?
+  cancelledBy       String?  // 'user' or 'driver'
+  feedbackSent      Boolean  @default(false)
+
+  // Relations
+  assignment        RideAssignment?
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("taxi_rides")
+}
+
+// RideAssignment - tracks driver assignments to rides
+model RideAssignment {
+  id                Int      @id @default(autoincrement())
+
+  // Ride reference
+  rideId            Int      @unique
+  ride              TaxiRide @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  // Driver reference
+  driverId          Int
+  driver            Driver   @relation(fields: [driverId], references: [id])
+
+  // Assignment timestamps
+  acceptedAt        DateTime @default(now())
+  cancelledAt       DateTime?
+
+  @@index([driverId])
+  @@map("ride_assignments")
+}
+
+// NatalRide model - tracks Natal airport ride-sharing offers
+model NatalRide {
+  id                Int      @id @default(autoincrement())
+  direction         String   // 'toAirport' or 'fromAirport'
+  datetime          DateTime // Scheduled travel time
+  originalMsg       String   // Original message text
+
+  // User reference
+  userId            Int
+  user              User     @relation("UserNatalRides", fields: [userId], references: [id])
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+
+  @@index([direction, datetime])
+  @@index([userId])
+  @@map("natal_rides")
+}
+
+// ConversationState model - tracks active taxi ride conversations
+model ConversationState {
+  id                     Int      @id @default(autoincrement())
+  userJid                String   @unique  // WhatsApp JID
+
+  // Conversation details
+  state                  String   // Current state: 'awaiting_language', 'awaiting_name', etc.
+  language               String?  // 'en' or 'pt'
+  vehicleType            String?  // 'taxi' or 'mototaxi'
+  skipUserInfo           Boolean  @default(false) // Whether to skip name/phone questions
+
+  // Partial user info collected so far
+  name                   String?
+  phone                  String?
+  locationText           String?
+  locationLat            Float?
+  locationLng            Float?
+  destination            String?
+  identifier             String?
+  waitTime               String?
+
+  // Ride ID if created
+  rideId                 Int?
+
+  // Status tracking
+  isActive               Boolean  @default(true)  // False when conversation is completed/expired
+  completionReason       String?  // 'completed', 'timeout', 'cancelled', 'ride_accepted'
+
+  // Timeout tracking
+  conversationStartedAt  DateTime
+  lastActivityAt         DateTime
+  completedAt            DateTime?
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([userJid])
+  @@index([isActive])
+  @@index([lastActivityAt])
+  @@map("conversation_states")
+}

@@ -66,5 +66,9 @@
     {
         "keywords": ["surf classes","surfing classes","rent surf board","surfing pictures","pictures surfing"],
         "response": "🏄🏽‍♀️🌊🏄🏻‍♂️ If you want to learn to surf while in Pipa, rent a board, or some cool footage/pictures of your sessions, check out the info here: [https://docs.google.com/document/d/12_tQw7GJ9aFi9PKwSOWgss1E1e_bvaGi9RygNLyXZr4/edit?usp=drivesdk]"
+    },
+    {
+        "keywords": ["add my friend"],
+        "response": "Please refer to the form to add someone to the group: http://bit.ly/4ftWZDG"
     }
 ]

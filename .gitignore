@@ -1,3 +1,7 @@
 node_modules/
 auth_info/
 .env
+claude.md
+data/
+
+/generated/prisma

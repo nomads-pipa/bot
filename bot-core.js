@@ -5,14 +5,15 @@ const moment = require('moment-timezone');
 const qrcode = require('qrcode-terminal'); // Add this import
 require('dotenv').config();
 
-const { 
-    loadKeywordResponses, 
-    generateWelcomeMessage 
+const {
+    loadKeywordResponses,
+    generateWelcomeMessage
 } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 const { createFileLogger } = require('./utils/file-logger');
-const { initNatalTransfer, processNatalTransferMessage, isNatalTransferMessage } = require('./utils/natal-transfer');
-const { initTaxiRide, processTaxiMessage } = require('./utils/taxi-ride');
+const { initNatalTransfer, processNatalTransferMessage, isNatalTransferMessage } = require('./utils/natal-transfer-db');
+const { initTaxiRide, processTaxiMessage } = require('./utils/taxi-ride-db');
+const { initDriverRegistration, processDriverRegistrationMessage } = require('./utils/taxi-drivers-register');
 
 // Initialize our custom logger (will use LOG_DIRECTORY from .env if available)
 const logger = createFileLogger();
@@ -70,6 +71,10 @@ async function startBot() {
             // Initialize the Taxi ride module
             await initTaxiRide(sock);
             logger.info('✅ Taxi ride module initialized');
+
+            // Initialize the Driver registration module
+            await initDriverRegistration();
+            logger.info('✅ Driver registration module initialized');
 
             // Get group names from environment variable
             const groupNames = getGroupNamesFromEnv();
@@ -272,9 +277,15 @@ function setupMessageHandler(sock, groupMap) {
                     }
                 } else {
                     // This is a private message (not from a group)
-                    // Process it for taxi conversations (user responses or driver acceptances)
                     logger.info(`📩 Received private message from ${sender}`);
-                    await processTaxiMessage(sock, message, sender, null);
+
+                    // First, check if this is a driver registration message
+                    const isRegistrationHandled = await processDriverRegistrationMessage(sock, message, sender);
+
+                    // If not handled by registration, process as taxi conversation
+                    if (!isRegistrationHandled) {
+                        await processTaxiMessage(sock, message, sender, null);
+                    }
                 }
             }
         }
