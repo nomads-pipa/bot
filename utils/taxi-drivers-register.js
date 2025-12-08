@@ -10,6 +10,7 @@ const STATES = {
   AWAITING_NAME: 'awaiting_name',
   AWAITING_PHONE: 'awaiting_phone',
   AWAITING_CPF: 'awaiting_cpf',
+  AWAITING_EMAIL: 'awaiting_email',
   AWAITING_VEHICLE_TYPE: 'awaiting_vehicle_type',
   AWAITING_CONFIRMATION: 'awaiting_confirmation',
   COMPLETED: 'completed'
@@ -33,6 +34,8 @@ const MESSAGES = {
   phoneInvalid: '❌ Formato de telefone inválido. Por favor inclua o código do país começando com + (ex: +55 84 9 1234-5678)',
   cpf: '🆔 Qual é o seu CPF?\n\n_Formato: 123.456.789-10 ou 12345678910_',
   cpfInvalid: '❌ CPF inválido. Por favor insira um CPF válido no formato 123.456.789-10 ou apenas os 11 números.',
+  email: '📧 Qual é o seu e-mail?\n\n_Exemplo: motorista@email.com_',
+  emailInvalid: '❌ E-mail inválido. Por favor insira um endereço de e-mail válido (ex: motorista@email.com)',
   vehicleType: '🚗 Qual tipo de motorista você é?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Táxi 🚗',
   vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi ou 2 para Táxi',
   confirmation: (driverInfo) => `📋 *Confirme suas informações:*
@@ -40,6 +43,7 @@ const MESSAGES = {
 *Nome:* ${driverInfo.name}
 *Telefone:* ${driverInfo.phone}
 *CPF:* ${driverInfo.cpf}
+*E-mail:* ${driverInfo.email}
 *Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
 
 As informações estão corretas?
@@ -164,6 +168,15 @@ function validatePhone(phone) {
 }
 
 /**
+ * Validate email format
+ */
+function validateEmail(email) {
+  // Basic email regex that checks for: local@domain.tld
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
+}
+
+/**
  * Validate CPF format and checksum
  */
 function validateCPF(cpf) {
@@ -229,6 +242,7 @@ async function startDriverRegistration(sock, driverJid) {
       name: null,
       phone: null,
       cpf: null,
+      email: null,
       isTaxiDriver: false,
       isMotoTaxiDriver: false
     });
@@ -304,6 +318,17 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
         }
 
         regState.cpf = formatCPF(trimmedMessage);
+        regState.state = STATES.AWAITING_EMAIL;
+        await sock.sendMessage(driverJid, { text: MESSAGES.email });
+        break;
+
+      case STATES.AWAITING_EMAIL:
+        if (!validateEmail(trimmedMessage)) {
+          await sock.sendMessage(driverJid, { text: MESSAGES.emailInvalid });
+          return true;
+        }
+
+        regState.email = trimmedMessage.trim();
         regState.state = STATES.AWAITING_VEHICLE_TYPE;
         await sock.sendMessage(driverJid, { text: MESSAGES.vehicleType });
         break;
@@ -341,6 +366,7 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
               name: regState.name,
               phone: regState.phone,
               cpf: regState.cpf,
+              email: regState.email,
               isTaxiDriver: regState.isTaxiDriver,
               isMotoTaxiDriver: regState.isMotoTaxiDriver,
               isActive: true

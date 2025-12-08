@@ -27,7 +27,8 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
 
     logger.info(`Detected potential Natal transfer message from ${sender}: ${message}`);
 
-    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nIf it's affirmative (someone offering a ride, saying that they are arriving in Natal or Pipa), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
+    const currentYear = new Date().getFullYear();
+    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nCurrent year: ${currentYear}\n\nIf it's affirmative (someone offering a ride, saying that they are arriving in Natal or Pipa), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIMPORTANT: When parsing dates without a year, assume the current year (${currentYear}) or next year if the date has already passed this year.\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
 
     logger.info(`ChatGPT parsed response: ${parsedRide}`);
 

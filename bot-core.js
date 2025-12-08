@@ -12,7 +12,7 @@ const {
 const { setupSchedulers } = require('./schedulers');
 const { createFileLogger } = require('./utils/file-logger');
 const { initNatalTransfer, processNatalTransferMessage, isNatalTransferMessage } = require('./utils/natal-transfer-db');
-const { initTaxiRide, processTaxiMessage } = require('./utils/taxi-ride-db');
+const { initTaxiRide, processTaxiMessage } = require('./taxi-feature');
 const { initDriverRegistration, processDriverRegistrationMessage } = require('./utils/taxi-drivers-register');
 
 // Initialize our custom logger (will use LOG_DIRECTORY from .env if available)

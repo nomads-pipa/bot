@@ -19,12 +19,15 @@ model User {
   jid               String   @unique  // WhatsApp JID (unique identifier)
   name              String?
   phone             String?
+  reputation        Float?   // Average rating from drivers (1.0 to 5.0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // Relations
   taxiRides         TaxiRide[]        @relation("UserRides")
   natalRides        NatalRide[]       @relation("UserNatalRides")
+  ratingsGiven      Rating[]          @relation("RatingsGiven")
+  ratingsReceived   Rating[]          @relation("RatingsReceived")
 
   @@index([jid])
   @@map("users")
@@ -37,16 +40,21 @@ model Driver {
   name              String?
   phone             String?
   cpf               String?  // Brazilian CPF (Tax ID)
+  email             String?  // Email address
   isActive          Boolean  @default(true)
   isTaxiDriver      Boolean  @default(false)
   isMotoTaxiDriver  Boolean  @default(false)
+  reputation        Float?   // Average rating from passengers (1.0 to 5.0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // Relations
   rideAssignments   RideAssignment[]
+  ratingsGiven      Rating[]          @relation("DriverRatingsGiven")
+  ratingsReceived   Rating[]          @relation("DriverRatingsReceived")
 
   @@index([jid])
+  @@index([cpf])
   @@index([isTaxiDriver])
   @@index([isMotoTaxiDriver])
   @@map("drivers")
@@ -83,11 +91,19 @@ model TaxiRide {
   cancelledBy       String?  // 'user' or 'driver'
   feedbackSent      Boolean  @default(false)
 
+  // Rating tracking - separate flags for passenger and driver
+  passengerRatingRequestSent Boolean   @default(false)
+  driverRatingRequestSent    Boolean   @default(false)
+  ratingRequestSentAt        DateTime? // When rating requests were sent (2 hours after completion)
+  ratingDeadlineAt           DateTime? // 24 hours after rating request sent
+
   // Relations
   assignment        RideAssignment?
+  ratings           Rating[]
 
   @@index([status, createdAt])
   @@index([userId])
+  @@index([ratingRequestSentAt])
   @@map("taxi_rides")
 }
 
@@ -154,6 +170,9 @@ model ConversationState {
   // Ride ID if created
   rideId                 Int?
 
+  // CPF validation tracking for driver acceptance
+  cpfAttempts            Int      @default(0)  // Number of CPF validation attempts
+
   // Status tracking
   isActive               Boolean  @default(true)  // False when conversation is completed/expired
   completionReason       String?  // 'completed', 'timeout', 'cancelled', 'ride_accepted'
@@ -170,4 +189,40 @@ model ConversationState {
   @@index([isActive])
   @@index([lastActivityAt])
   @@map("conversation_states")
+}
+
+// Rating model - tracks ratings given after completed rides
+model Rating {
+  id                Int      @id @default(autoincrement())
+
+  // Ride reference
+  rideId            Int
+  ride              TaxiRide @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  // Rater (who gave the rating) - can be passenger or driver
+  raterType         String   // 'passenger' or 'driver'
+  raterUserId       Int?     // If passenger rated
+  raterUser         User?    @relation("RatingsGiven", fields: [raterUserId], references: [id])
+  raterDriverId     Int?     // If driver rated
+  raterDriver       Driver?  @relation("DriverRatingsGiven", fields: [raterDriverId], references: [id])
+
+  // Ratee (who received the rating) - can be passenger or driver
+  rateeType         String   // 'passenger' or 'driver'
+  rateeUserId       Int?     // If passenger was rated
+  rateeUser         User?    @relation("RatingsReceived", fields: [rateeUserId], references: [id])
+  rateeDriverId     Int?     // If driver was rated
+  rateeDriver       Driver?  @relation("DriverRatingsReceived", fields: [rateeDriverId], references: [id])
+
+  // Rating value
+  score             Int      // 1 to 5
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+
+  @@index([rideId])
+  @@index([raterUserId])
+  @@index([raterDriverId])
+  @@index([rateeUserId])
+  @@index([rateeDriverId])
+  @@map("ratings")
 }
