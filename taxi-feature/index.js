@@ -26,18 +26,25 @@ async function processTaxiMessage(sock, message, sender) {
   const messageContent = message.message.conversation ||
                          message.message.extendedTextMessage?.text;
 
+  // Debug logging
+  logger.info(`🔍 processTaxiMessage - Sender: ${sender}, Content: "${messageContent}"`);
+
   if (activeConversations.has(sender)) {
+    logger.info(`🔍 Routing to conversation handler`);
     return await processTaxiConversation(sock, message, sender);
   }
 
   // Check for CPF validation (must come before other driver actions)
   const isCpfValidation = await processCpfValidation(sock, message, sender);
+  logger.info(`🔍 isCpfValidation: ${isCpfValidation}`);
   if (isCpfValidation) return true;
 
   const isUserCancellation = await handleUserCancellation(sock, message, sender);
+  logger.info(`🔍 isUserCancellation: ${isUserCancellation}`);
   if (isUserCancellation) return true;
 
   const isDriverCancellation = await handleDriverCancellation(sock, message, sender);
+  logger.info(`🔍 isDriverCancellation: ${isDriverCancellation}`);
   if (isDriverCancellation) return true;
 
   // Check for rating response BEFORE driver response to avoid conflict with numeric ride IDs

@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const { findDriverByIdentifier, prepareIdentifierFields } = require('../taxi-feature/utils');
 const { createFileLogger } = require('./file-logger');
 const logger = createFileLogger();
 
@@ -226,9 +227,7 @@ function formatCPF(cpf) {
 async function startDriverRegistration(sock, driverJid) {
   try {
     // Check if driver is already registered
-    const existingDriver = await prisma.driver.findUnique({
-      where: { jid: driverJid }
-    });
+    const existingDriver = await findDriverByIdentifier(driverJid);
 
     if (existingDriver) {
       await sock.sendMessage(driverJid, { text: MESSAGES.alreadyRegistered });
@@ -359,10 +358,13 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
         const upperMessage = trimmedMessage.toUpperCase();
 
         if (upperMessage === 'CONFIRMAR' || upperMessage === 'CONFIRM') {
+          // Prepare identifier fields (jid or lid)
+          const identifierFields = prepareIdentifierFields(driverJid);
+
           // Save to database
           await prisma.driver.create({
             data: {
-              jid: driverJid,
+              ...identifierFields,
               name: regState.name,
               phone: regState.phone,
               cpf: regState.cpf,

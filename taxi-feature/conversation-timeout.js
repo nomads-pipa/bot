@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, findUserByIdentifier, getPrimaryIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { activeConversations, conversationTimeouts, CONVERSATION_TIMEOUT, WARNING_TIME, TRANSLATIONS } = require('./constants');
 const { deleteConversationState } = require('./conversation-state');
@@ -16,6 +16,28 @@ function clearConversationTimeouts(sender) {
     }
     conversationTimeouts.delete(sender);
     logger.info(`⏰ Cleared timeouts for ${sender}`);
+  }
+}
+
+/**
+ * Clear conversation timeouts for all identifiers (both JID and LID) associated with a user
+ * This handles the case where the same user has multiple identifiers in the system
+ */
+async function clearAllUserTimeouts(sender) {
+  // Clear timeout for the current sender identifier
+  clearConversationTimeouts(sender);
+
+  // Find the user and check if they have both JID and LID
+  const user = await findUserByIdentifier(sender);
+  if (user) {
+    // Clear timeout for JID if it exists and is different from sender
+    if (user.jid && user.jid !== sender) {
+      clearConversationTimeouts(user.jid);
+    }
+    // Clear timeout for LID if it exists and is different from sender
+    if (user.lid && user.lid !== sender) {
+      clearConversationTimeouts(user.lid);
+    }
   }
 }
 
@@ -73,6 +95,7 @@ function resetConversationTimeout(sock, sender, language) {
 
 module.exports = {
   clearConversationTimeouts,
+  clearAllUserTimeouts,
   handleConversationTimeout,
   handleConversationWarning,
   resetConversationTimeout

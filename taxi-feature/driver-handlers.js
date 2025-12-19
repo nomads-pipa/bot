@@ -1,4 +1,4 @@
-const { prisma, normalizeJid, isRegisteredDriver } = require('./utils');
+const { prisma, normalizeJid, isRegisteredDriver, findDriverByIdentifier, prepareIdentifierFields, getPrimaryIdentifier, getMessagingIdentifier, isSameUser } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { activeConversations, activeRideTimeouts, userRideMap, STATES, TRANSLATIONS } = require('./constants');
 const { clearConversationTimeouts, resetConversationTimeout } = require('./conversation-timeout');
@@ -23,17 +23,27 @@ async function processDriverResponse(sock, message, sender) {
     return true;
   }
 
-  // Require "aceitar" keyword - don't match bare numbers to avoid conflicts with passenger responses
-  const acceptanceRegex = /^aceitar\s+(?:corrida\s+)?(\d+)$/i;
-  const match = messageContent.trim().match(acceptanceRegex);
+  // Check if sender is a registered driver first
+  const normalizedJid = normalizeJid(sender);
+  const isDriver = await isRegisteredDriver(normalizedJid);
+
+  // Try matching "aceitar [number]" format (preferred/explicit format)
+  const acceptanceWithKeywordRegex = /^aceitar\s+(?:corrida\s+)?(\d+)$/i;
+  let match = messageContent.trim().match(acceptanceWithKeywordRegex);
+
+  // If no match and sender is a registered driver, also accept bare numbers
+  // This is safe because:
+  // 1. Active passenger conversations are handled before this function is called
+  // 2. Ratings require "avaliar" or "rate" keywords (checked before this function)
+  // 3. Only registered drivers can use this shortcut
+  if (!match && isDriver) {
+    const bareNumberRegex = /^(\d+)$/;
+    match = messageContent.trim().match(bareNumberRegex);
+  }
 
   if (!match) return false;
 
   const rideId = parseInt(match[1], 10);
-
-  // Check if sender is a registered driver
-  const normalizedJid = normalizeJid(sender);
-  const isDriver = await isRegisteredDriver(normalizedJid);
 
   if (!isDriver) {
     // LID doesn't match - ask for CPF confirmation
@@ -108,21 +118,45 @@ async function processDriverResponse(sock, message, sender) {
   }
 
   // Get registered driver (we already verified they exist and are registered)
-  const driver = await prisma.driver.findUnique({
-    where: { jid: normalizedJid }
+  const driver = await findDriverByIdentifier(normalizedJid);
+
+  // Update driver record with current identifier (JID or LID) if not already present
+  const identifierFields = prepareIdentifierFields(normalizedJid);
+  if (Object.keys(identifierFields).length > 0) {
+    await prisma.driver.update({
+      where: { id: driver.id },
+      data: identifierFields
+    });
+  }
+
+  // Check if there's already an assignment for this ride (shouldn't happen, but handle it)
+  const existingAssignment = await prisma.rideAssignment.findUnique({
+    where: { rideId: rideId }
   });
 
-  // Update ride and create assignment
+  if (existingAssignment) {
+    // Assignment already exists - this ride was already accepted
+    logger.warn(`⚠️ Ride ${rideId} already has an assignment to driver ${existingAssignment.driverId}`);
+    await sock.sendMessage(sender, {
+      text: '❌ Esta corrida já foi aceita por outro motorista.'
+    });
+    return true;
+  }
+
+  // Update ride status and create assignment
   await prisma.taxiRide.update({
     where: { id: rideId },
     data: {
       status: 'completed',
-      completedAt: new Date(),
-      assignment: {
-        create: {
-          driverId: driver.id
-        }
-      }
+      completedAt: new Date()
+    }
+  });
+
+  // Create the assignment separately to avoid constraint issues
+  await prisma.rideAssignment.create({
+    data: {
+      rideId: rideId,
+      driverId: driver.id
     }
   });
 
@@ -136,7 +170,7 @@ async function processDriverResponse(sock, message, sender) {
   clearKeepaliveInterval(rideId);
 
   const driverJid = normalizedJid;
-  const passengerJid = ride.user.jid;
+  const passengerJid = getPrimaryIdentifier(ride.user);
 
   await scheduleFeedbackMessages(sock, ride.id, passengerJid, driverJid, ride.language);
 
@@ -156,6 +190,7 @@ Identificação: ${ride.identifier}
 Tempo de espera: ${ride.waitTime} minutos
 
 📞 *Entre em contato com o passageiro para mais detalhes.*
+💰 *Por favor, acerte o valor com o passageiro.*
 
 Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
   });
@@ -176,11 +211,11 @@ Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
     mentions: [driverJid]
   });
 
-  activeConversations.delete(ride.user.jid);
-  clearConversationTimeouts(ride.user.jid);
-  await deleteConversationState(ride.user.jid, 'driver_accepted');
+  activeConversations.delete(getPrimaryIdentifier(ride.user));
+  clearConversationTimeouts(getPrimaryIdentifier(ride.user));
+  await deleteConversationState(getPrimaryIdentifier(ride.user), 'driver_accepted');
 
-  userRideMap.set(ride.user.jid, rideId);
+  userRideMap.set(getPrimaryIdentifier(ride.user), rideId);
 
   logger.info(`✅ Ride ${rideId} accepted by driver ${sender}`);
 
@@ -217,11 +252,9 @@ async function handleUserCancellation(sock, message, sender) {
     return true;
   }
 
-  if (ride.user.jid !== sender) {
-    await sock.sendMessage(sender, {
-      text: '❌ You cannot cancel this ride / Você não pode cancelar esta corrida.'
-    });
-    return true;
+  if (!isSameUser(sender, ride.user)) {
+    // Not the passenger - let driver cancellation handler try
+    return false;
   }
 
   if (ride.status === 'cancelled' || ride.status === 'expired') {
@@ -256,7 +289,8 @@ async function handleUserCancellation(sock, message, sender) {
   });
 
   if (ride.assignment && ride.assignment.driver) {
-    await sock.sendMessage(ride.assignment.driver.jid, {
+    const driverIdentifier = getPrimaryIdentifier(ride.assignment.driver);
+    await sock.sendMessage(driverIdentifier, {
       text: `❌ *CORRIDA CANCELADA PELO PASSAGEIRO*
 
 *Corrida #${rideId}*
@@ -266,7 +300,7 @@ O passageiro ${ride.user.name} cancelou a corrida.
     });
 
     await sock.sendMessage(sender, {
-      text: t.driverNotifiedCancel(ride.assignment.driver.jid.replace('@s.whatsapp.net', ''))
+      text: t.driverNotifiedCancel(ride.assignment.driver.phone || driverIdentifier)
     });
   }
 
@@ -283,6 +317,11 @@ async function handleDriverCancellation(sock, message, sender) {
 
   const cancelRegex = /^(?:cancel|cancelar)(?:\s+(?:ride|corrida))?\s+(\d+)$/i;
   const match = messageContent.trim().match(cancelRegex);
+
+  // Debug logging
+  if (messageContent.toLowerCase().includes('cancel') || messageContent.toLowerCase().includes('cancelar')) {
+    logger.info(`🔍 Driver cancellation attempt - Message: "${messageContent}", Match: ${!!match}, Sender: ${sender}`);
+  }
 
   if (!match) return false;
 
@@ -305,7 +344,7 @@ async function handleDriverCancellation(sock, message, sender) {
     return true;
   }
 
-  if (!ride.assignment || ride.assignment.driver.jid !== sender) {
+  if (!ride.assignment || !isSameUser(sender, ride.assignment.driver)) {
     await sock.sendMessage(sender, {
       text: '❌ Você não está atribuído a esta corrida.'
     });
@@ -335,27 +374,31 @@ async function handleDriverCancellation(sock, message, sender) {
 
   clearFeedbackTimeouts(rideId);
   clearKeepaliveInterval(rideId);
-  userRideMap.delete(ride.user.jid);
+  userRideMap.delete(getPrimaryIdentifier(ride.user));
 
-  await sock.sendMessage(sender, {
+  // Send confirmation to driver using messaging identifier (JID preferred for reliability)
+  const driverMessagingId = getMessagingIdentifier(ride.assignment.driver);
+  logger.info(`✉️ Sending cancellation confirmation to driver ${driverMessagingId} (sender was: ${sender})`);
+  await sock.sendMessage(driverMessagingId, {
     text: `✅ Corrida #${rideId} foi cancelada. O passageiro será consultado se deseja reenviar.`
   });
+  logger.info(`✅ Sent cancellation confirmation to driver ${driverMessagingId}`);
 
   const t = TRANSLATIONS[ride.language];
 
   // Ask passenger if they want to rebroadcast
-  await sock.sendMessage(ride.user.jid, {
+  await sock.sendMessage(getPrimaryIdentifier(ride.user), {
     text: t.driverCancelled(rideId)
   });
 
   logger.info(`❌ Ride ${rideId} cancelled by driver ${sender}, asking passenger about rebroadcast...`);
 
   // Set conversation timeout for decision
-  resetConversationTimeout(sock, ride.user.jid, ride.language);
+  resetConversationTimeout(sock, getPrimaryIdentifier(ride.user), ride.language);
 
   // Set up conversation state for driver cancel retry flow
   const conversationState = await prisma.conversationState.upsert({
-    where: { userJid: ride.user.jid },
+    where: { userJid: getPrimaryIdentifier(ride.user) },
     update: {
       state: 'awaiting_driver_cancel_decision',
       rideId: rideId,
@@ -363,7 +406,7 @@ async function handleDriverCancellation(sock, message, sender) {
       isActive: true
     },
     create: {
-      userJid: ride.user.jid,
+      userJid: getPrimaryIdentifier(ride.user),
       state: 'awaiting_driver_cancel_decision',
       language: ride.language,
       vehicleType: ride.vehicleType,
@@ -383,7 +426,7 @@ async function handleDriverCancellation(sock, message, sender) {
   });
 
   // Update active conversation
-  activeConversations.set(ride.user.jid, {
+  activeConversations.set(getPrimaryIdentifier(ride.user), {
     state: STATES.AWAITING_DRIVER_CANCEL_DECISION,
     language: ride.language,
     vehicleType: ride.vehicleType,
@@ -482,13 +525,16 @@ async function processCpfValidation(sock, message, sender) {
     return true;
   }
 
-  // CPF found! Update driver's JID in database
+  // CPF found! Update driver's identifier (JID or LID) in database
   const normalizedSender = normalizeJid(sender);
-  logger.info(`✅ CPF validated for driver ${driver.id}, updating JID from ${driver.jid} to ${normalizedSender} (original: ${sender})`);
+  const identifierFields = prepareIdentifierFields(normalizedSender);
+  const oldIdentifier = getPrimaryIdentifier(driver);
+
+  logger.info(`✅ CPF validated for driver ${driver.id}, updating identifier from ${oldIdentifier} to ${normalizedSender} (original: ${sender})`);
 
   await prisma.driver.update({
     where: { id: driver.id },
-    data: { jid: normalizedSender }
+    data: identifierFields
   });
 
   // Clean up conversation state
@@ -529,17 +575,34 @@ async function processCpfValidation(sock, message, sender) {
     return true;
   }
 
-  // Update ride and create assignment
+  // Check if there's already an assignment for this ride
+  const existingAssignment = await prisma.rideAssignment.findUnique({
+    where: { rideId: rideId }
+  });
+
+  if (existingAssignment) {
+    // Assignment already exists - this ride was already accepted
+    logger.warn(`⚠️ Ride ${rideId} already has an assignment to driver ${existingAssignment.driverId}`);
+    await sock.sendMessage(sender, {
+      text: '❌ Esta corrida já foi aceita por outro motorista.'
+    });
+    return true;
+  }
+
+  // Update ride status and create assignment
   await prisma.taxiRide.update({
     where: { id: rideId },
     data: {
       status: 'completed',
-      completedAt: new Date(),
-      assignment: {
-        create: {
-          driverId: driver.id
-        }
-      }
+      completedAt: new Date()
+    }
+  });
+
+  // Create the assignment separately to avoid constraint issues
+  await prisma.rideAssignment.create({
+    data: {
+      rideId: rideId,
+      driverId: driver.id
     }
   });
 
@@ -553,7 +616,7 @@ async function processCpfValidation(sock, message, sender) {
   clearKeepaliveInterval(rideId);
 
   const driverJid = sender;
-  const passengerJid = ride.user.jid;
+  const passengerJid = getPrimaryIdentifier(ride.user);
 
   await scheduleFeedbackMessages(sock, ride.id, passengerJid, driverJid, ride.language);
 
@@ -573,6 +636,7 @@ Identificação: ${ride.identifier}
 Tempo de espera: ${ride.waitTime} minutos
 
 📞 *Entre em contato com o passageiro para mais detalhes.*
+💰 *Por favor, acerte o valor com o passageiro.*
 
 Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
   });
@@ -593,11 +657,11 @@ Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
     mentions: [driverJid]
   });
 
-  activeConversations.delete(ride.user.jid);
-  clearConversationTimeouts(ride.user.jid);
-  await deleteConversationState(ride.user.jid, 'driver_accepted');
+  activeConversations.delete(getPrimaryIdentifier(ride.user));
+  clearConversationTimeouts(getPrimaryIdentifier(ride.user));
+  await deleteConversationState(getPrimaryIdentifier(ride.user), 'driver_accepted');
 
-  userRideMap.set(ride.user.jid, rideId);
+  userRideMap.set(getPrimaryIdentifier(ride.user), rideId);
 
   logger.info(`✅ Ride ${rideId} accepted by driver ${sender} after CPF validation`);
 

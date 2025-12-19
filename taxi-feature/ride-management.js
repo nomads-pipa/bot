@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, findUserByIdentifier, prepareIdentifierFields, getPrimaryIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { activeConversations, activeRideTimeouts, userRideMap, TRANSLATIONS } = require('./constants');
 const { clearConversationTimeouts, resetConversationTimeout } = require('./conversation-timeout');
@@ -23,7 +23,7 @@ async function getDriverNumbers(vehicleType, testMode = false) {
 
     const drivers = await prisma.driver.findMany({
       where: whereClause,
-      select: { jid: true }
+      select: { jid: true, lid: true }
     });
 
     if (drivers.length === 0) {
@@ -32,7 +32,8 @@ async function getDriverNumbers(vehicleType, testMode = false) {
     }
 
     logger.info(`Found ${drivers.length} active ${vehicleType} drivers in database`);
-    return drivers.map(driver => driver.jid);
+    // Return primary identifier (LID if available, otherwise JID)
+    return drivers.map(driver => getPrimaryIdentifier(driver)).filter(id => id !== null);
   } catch (error) {
     logger.error(`Error fetching ${vehicleType} drivers from database:`, error);
     return [];
@@ -40,19 +41,31 @@ async function getDriverNumbers(vehicleType, testMode = false) {
 }
 
 async function createInitialRide(sender, vehicleType, language, userInfo = {}) {
-  // Get or create user
-  const user = await prisma.user.upsert({
-    where: { jid: sender },
-    update: {
-      name: userInfo.name || null,
-      phone: userInfo.phone || null
-    },
-    create: {
-      jid: sender,
-      name: userInfo.name || null,
-      phone: userInfo.phone || null
-    }
-  });
+  // Check if user exists
+  let user = await findUserByIdentifier(sender);
+
+  const identifierFields = prepareIdentifierFields(sender);
+
+  if (user) {
+    // Update existing user
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...identifierFields,
+        name: userInfo.name || user.name,
+        phone: userInfo.phone || user.phone
+      }
+    });
+  } else {
+    // Create new user
+    user = await prisma.user.create({
+      data: {
+        ...identifierFields,
+        name: userInfo.name || null,
+        phone: userInfo.phone || null
+      }
+    });
+  }
 
   // Create ride with initial data (most fields will be null)
   const ride = await prisma.taxiRide.create({
@@ -85,19 +98,31 @@ async function updateRide(rideId, updates) {
 }
 
 async function createRide(sender, userInfo, vehicleType, language) {
-  // Get or create user
-  const user = await prisma.user.upsert({
-    where: { jid: sender },
-    update: {
-      name: userInfo.name,
-      phone: userInfo.phone
-    },
-    create: {
-      jid: sender,
-      name: userInfo.name,
-      phone: userInfo.phone
-    }
-  });
+  // Check if user exists
+  let user = await findUserByIdentifier(sender);
+
+  const identifierFields = prepareIdentifierFields(sender);
+
+  if (user) {
+    // Update existing user
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...identifierFields,
+        name: userInfo.name,
+        phone: userInfo.phone
+      }
+    });
+  } else {
+    // Create new user
+    user = await prisma.user.create({
+      data: {
+        ...identifierFields,
+        name: userInfo.name,
+        phone: userInfo.phone
+      }
+    });
+  }
 
   // Create ride
   const ride = await prisma.taxiRide.create({
@@ -124,7 +149,7 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
 
   if (driverNumbers.length === 0) {
     const t = TRANSLATIONS[ride.language];
-    await sock.sendMessage(ride.user.jid, {
+    await sock.sendMessage(getPrimaryIdentifier(ride.user), {
       text: t.noDrivers
     });
     await prisma.taxiRide.update({
@@ -144,8 +169,8 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
   const driverMessage = `${vehicleIcon} *NOVA CORRIDA AUTOMÁTICA - ${vehicleLabel}${testModeTag}*
 *[RE-ENVIADA - Motorista anterior cancelou]*
 
-*Passageiro:* ${conversation.userInfo.name}
-*Telefone:* ${conversation.userInfo.phone}
+*Passageiro:* ${conversation.name || ride.user.name}
+*Telefone:* ${conversation.phone || ride.user.phone}
 *Reputação:* ${passengerRep}
 *Local (texto):* ${ride.locationText}
 *Destino:* ${ride.destination}
@@ -184,7 +209,7 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
     const timeoutMs = waitTimeMinutes * 60 * 1000;
     const { handleRideTimeout } = require('./ride-timeout');
     const timeoutId = setTimeout(() => {
-      handleRideTimeout(sock, ride.id, ride.user.jid, waitTimeMinutes, ride.language);
+      handleRideTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), waitTimeMinutes, ride.language);
     }, timeoutMs);
 
     activeRideTimeouts.set(ride.id, timeoutId);
@@ -192,7 +217,7 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
   }
 
   // Schedule keepalive messages
-  scheduleKeepaliveMessages(sock, ride.id, ride.user.jid, ride.language);
+  scheduleKeepaliveMessages(sock, ride.id, getPrimaryIdentifier(ride.user), ride.language);
 }
 
 async function broadcastRideToDrivers(sock, sender, conversation) {

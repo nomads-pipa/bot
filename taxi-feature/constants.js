@@ -102,6 +102,8 @@ To cancel this ride, reply with: *cancelar ${rideId}*`,
 *Phone:* ${formattedPhone}
 *Reputation:* ${driverRep}
 
+💰 *Please agree on the price with the driver.*
+
 The driver will contact you shortly. Have a safe trip! 🚖
 
 To cancel this ride, reply with: *cancelar ${rideId}*`;
@@ -244,6 +246,8 @@ Para cancelar esta corrida, responda com: *cancelar ${rideId}*`,
 *Motorista:* ${driverInfo}
 *Telefone:* ${formattedPhone}
 *Reputação:* ${driverRep}
+
+💰 *Por favor, acerte o valor com o motorista.*
 
 O motorista entrará em contato em breve. Tenha uma viagem segura! 🚖
 

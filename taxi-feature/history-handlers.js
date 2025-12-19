@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, findUserByIdentifier, getPrimaryIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 
 const logger = createFileLogger();
@@ -14,37 +14,43 @@ async function sendRideHistory(sock, sender) {
   logger.info(`📋 Ride history requested by sender: ${sender}`);
 
   // Find the user in the database
-  const user = await prisma.user.findUnique({
-    where: { jid: sender },
-    include: {
-      taxiRides: {
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: {
-          assignment: {
-            include: {
-              driver: true
+  const user = await findUserByIdentifier(sender);
+
+  // Load rides if user found
+  let userWithRides = null;
+  if (user) {
+    userWithRides = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        taxiRides: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: {
+            assignment: {
+              include: {
+                driver: true
+              }
             }
           }
         }
       }
-    }
-  });
+    });
+  }
 
-  if (!user) {
-    logger.warn(`📋 User not found in database for JID: ${sender}`);
+  if (!userWithRides) {
+    logger.warn(`📋 User not found in database for identifier: ${sender}`);
 
     // Debug: Check if there are any users in the database
     const allUsers = await prisma.user.findMany({
-      select: { jid: true, phone: true }
+      select: { jid: true, lid: true, phone: true }
     });
     logger.info(`📋 Total users in database: ${allUsers.length}`);
     if (allUsers.length > 0) {
-      logger.info(`📋 Sample JIDs: ${allUsers.slice(0, 3).map(u => u.jid).join(', ')}`);
+      logger.info(`📋 Sample identifiers: ${allUsers.slice(0, 3).map(u => getPrimaryIdentifier(u)).join(', ')}`);
     }
   }
 
-  if (!user || user.taxiRides.length === 0) {
+  if (!userWithRides || userWithRides.taxiRides.length === 0) {
     // Send message in both languages since we don't know user's preference
     await sock.sendMessage(sender, {
       text: `📋 *Ride History / Histórico de Corridas*
@@ -60,10 +66,10 @@ Para solicitar uma corrida, envie "taxi" ou "mototaxi".`
   }
 
   // Build the report
-  const maxRides = Math.min(user.taxiRides.length, 5);
+  const maxRides = Math.min(userWithRides.taxiRides.length, 5);
   let report = `📋 *Your Last ${maxRides} Ride(s) / Suas Últimas ${maxRides} Corrida(s)*\n\n`;
 
-  if (user.taxiRides.length > 5) {
+  if (userWithRides.taxiRides.length > 5) {
     report += `_Showing the 5 most recent rides / Mostrando as 5 corridas mais recentes_\n\n`;
   }
 
@@ -72,7 +78,7 @@ Para solicitar uma corrida, envie "taxi" ou "mototaxi".`
   const mentions = [];
 
   for (let i = 0; i < maxRides; i++) {
-    const ride = user.taxiRides[i];
+    const ride = userWithRides.taxiRides[i];
     const rideNumber = i + 1;
 
     // Format date and time
@@ -116,10 +122,13 @@ Para solicitar uma corrida, envie "taxi" ou "mototaxi".`
 
     // Driver info if ride was accepted
     if (ride.assignment && ride.assignment.driver) {
-      const driverPhone = ride.assignment.driver.jid.split('@')[0];
+      const driverIdentifier = getPrimaryIdentifier(ride.assignment.driver);
+      const driverPhone = driverIdentifier ? driverIdentifier.split('@')[0] : 'Unknown';
       report += `👤 *Driver / Motorista:* @${driverPhone}\n`;
-      // Collect driver JID for mentions
-      mentions.push(ride.assignment.driver.jid);
+      // Collect driver identifier for mentions
+      if (driverIdentifier) {
+        mentions.push(driverIdentifier);
+      }
     } else {
       report += `👤 *Driver / Motorista:* ${ride.language === 'pt' ? 'Nenhum motorista aceitou' : 'No driver accepted'}\n`;
     }

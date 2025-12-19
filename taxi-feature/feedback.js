@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, getPrimaryIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { feedbackTimeouts, FEEDBACK_DELAY, RATING_DEADLINE, TRANSLATIONS } = require('./constants');
 
@@ -158,10 +158,10 @@ async function restoreFeedbackTimeouts(sock) {
       if (!ride.passengerRatingRequestSent) {
         logger.info(`📧 Sending overdue rating request to passenger for ride ${ride.id}`);
         try {
-          await sock.sendMessage(ride.user.jid, {
+          await sock.sendMessage(getPrimaryIdentifier(ride.user), {
             text: tPassenger.ratingRequestPassenger(ride.id, driverName)
           });
-          await sock.sendMessage(ride.user.jid, {
+          await sock.sendMessage(getPrimaryIdentifier(ride.user), {
             text: tPassenger.feedbackPassenger(ride.id)
           });
           logger.info(`✅ Sent rating request to passenger for ride ${ride.id}`);
@@ -184,10 +184,10 @@ async function restoreFeedbackTimeouts(sock) {
       if (!ride.driverRatingRequestSent) {
         logger.info(`📧 Sending overdue rating request to driver for ride ${ride.id}`);
         try {
-          await sock.sendMessage(ride.assignment.driver.jid, {
+          await sock.sendMessage(getPrimaryIdentifier(ride.assignment.driver), {
             text: tDriver.ratingRequestDriver(ride.id, passengerName)
           });
-          await sock.sendMessage(ride.assignment.driver.jid, {
+          await sock.sendMessage(getPrimaryIdentifier(ride.assignment.driver), {
             text: tDriver.feedbackDriver(ride.id)
           });
           logger.info(`✅ Sent rating request to driver for ride ${ride.id}`);
@@ -206,7 +206,7 @@ async function restoreFeedbackTimeouts(sock) {
       sentCount++;
     } else {
       // Reschedule
-      await scheduleFeedbackMessages(sock, ride.id, ride.user.jid, ride.assignment.driver.jid, ride.language);
+      await scheduleFeedbackMessages(sock, ride.id, getPrimaryIdentifier(ride.user), getPrimaryIdentifier(ride.assignment.driver), ride.language);
       logger.info(`⏰ Restored rating timeout for ride ${ride.id} - will send in ${Math.round(timeRemaining / 60000)} minutes`);
       restoredCount++;
     }

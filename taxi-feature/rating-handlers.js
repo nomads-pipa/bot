@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, findUserByIdentifier, findDriverByIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { TRANSLATIONS } = require('./constants');
 const { calculateAndUpdateUserReputation, calculateAndUpdateDriverReputation } = require('./reputation');
@@ -21,24 +21,33 @@ async function processRatingResponse(sock, message, sender) {
 
   const rating = parseInt(ratingMatch[2], 10);
 
+  // Find user and driver by identifier (handles both JID and LID)
+  const user = await findUserByIdentifier(sender);
+  const driver = await findDriverByIdentifier(sender);
+
+  let userRides = [];
+  let driverRides = [];
+
   // Find if this user has any pending ratings (rides where rating request was sent but no rating given yet)
   // Check if sender is a passenger
-  const userRides = await prisma.taxiRide.findMany({
-    where: {
-      user: { jid: sender },
-      status: 'completed',
-      ratingRequestSentAt: { not: null },
-      ratingDeadlineAt: { gte: new Date() }
-    },
-    include: {
-      assignment: {
-        include: { driver: true }
+  if (user) {
+    userRides = await prisma.taxiRide.findMany({
+      where: {
+        userId: user.id,
+        status: 'completed',
+        ratingRequestSentAt: { not: null },
+        ratingDeadlineAt: { gte: new Date() }
       },
-      user: true,
-      ratings: true
-    },
-    orderBy: { ratingRequestSentAt: 'desc' }
-  });
+      include: {
+        assignment: {
+          include: { driver: true }
+        },
+        user: true,
+        ratings: true
+      },
+      orderBy: { ratingRequestSentAt: 'desc' }
+    });
+  }
 
   // Check if passenger already rated this ride
   const pendingUserRide = userRides.find(ride =>
@@ -46,24 +55,26 @@ async function processRatingResponse(sock, message, sender) {
   );
 
   // Check if sender is a driver
-  const driverRides = await prisma.taxiRide.findMany({
-    where: {
-      assignment: {
-        driver: { jid: sender }
+  if (driver) {
+    driverRides = await prisma.taxiRide.findMany({
+      where: {
+        assignment: {
+          driverId: driver.id
+        },
+        status: 'completed',
+        ratingRequestSentAt: { not: null },
+        ratingDeadlineAt: { gte: new Date() }
       },
-      status: 'completed',
-      ratingRequestSentAt: { not: null },
-      ratingDeadlineAt: { gte: new Date() }
-    },
-    include: {
-      assignment: {
-        include: { driver: true }
+      include: {
+        assignment: {
+          include: { driver: true }
+        },
+        user: true,
+        ratings: true
       },
-      user: true,
-      ratings: true
-    },
-    orderBy: { ratingRequestSentAt: 'desc' }
-  });
+      orderBy: { ratingRequestSentAt: 'desc' }
+    });
+  }
 
   // Check if driver already rated this ride
   const pendingDriverRide = driverRides.find(ride =>
@@ -138,32 +149,43 @@ async function checkInvalidRatingAttempt(sock, message, sender) {
   // Check if they're trying to use rating keywords but with wrong format
   // Match "avaliar" or "rate" followed by something that's not exactly the right format
   if (trimmedMessage.startsWith('avaliar') || trimmedMessage.startsWith('rate')) {
-    // Check if they have pending ratings
-    const userRides = await prisma.taxiRide.findMany({
-      where: {
-        user: { jid: sender },
-        status: 'completed',
-        ratingRequestSentAt: { not: null },
-        ratingDeadlineAt: { gte: new Date() }
-      },
-      include: {
-        ratings: true
-      }
-    });
+    // Find user and driver by identifier (handles both JID and LID)
+    const user = await findUserByIdentifier(sender);
+    const driver = await findDriverByIdentifier(sender);
 
-    const driverRides = await prisma.taxiRide.findMany({
-      where: {
-        assignment: {
-          driver: { jid: sender }
+    let userRides = [];
+    let driverRides = [];
+
+    // Check if they have pending ratings
+    if (user) {
+      userRides = await prisma.taxiRide.findMany({
+        where: {
+          userId: user.id,
+          status: 'completed',
+          ratingRequestSentAt: { not: null },
+          ratingDeadlineAt: { gte: new Date() }
         },
-        status: 'completed',
-        ratingRequestSentAt: { not: null },
-        ratingDeadlineAt: { gte: new Date() }
-      },
-      include: {
-        ratings: true
-      }
-    });
+        include: {
+          ratings: true
+        }
+      });
+    }
+
+    if (driver) {
+      driverRides = await prisma.taxiRide.findMany({
+        where: {
+          assignment: {
+            driverId: driver.id
+          },
+          status: 'completed',
+          ratingRequestSentAt: { not: null },
+          ratingDeadlineAt: { gte: new Date() }
+        },
+        include: {
+          ratings: true
+        }
+      });
+    }
 
     const pendingUserRide = userRides.find(ride =>
       !ride.ratings.some(r => r.raterType === 'passenger' && r.rateeType === 'driver')

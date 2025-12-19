@@ -1,17 +1,18 @@
-const { prisma, validatePhoneNumber } = require('./utils');
+const { prisma, validatePhoneNumber, findUserByIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { activeConversations, STATES, TRANSLATIONS } = require('./constants');
 const { saveConversationState, deleteConversationState } = require('./conversation-state');
-const { resetConversationTimeout, clearConversationTimeouts } = require('./conversation-timeout');
+const { resetConversationTimeout, clearConversationTimeouts, clearAllUserTimeouts } = require('./conversation-timeout');
 const { createInitialRide, updateRide, broadcastRideToDrivers, rebroadcastRideAfterDriverCancel } = require('./ride-management');
 
 const logger = createFileLogger();
 
 async function startRideRequest(sock, sender, testMode = false) {
+  // Clear any lingering timeouts for all identifiers (JID and LID) associated with this user
+  await clearAllUserTimeouts(sender);
+
   // Check if user already exists in the database
-  const existingUser = await prisma.user.findUnique({
-    where: { jid: sender }
-  });
+  const existingUser = await findUserByIdentifier(sender);
 
   // Check if we have complete user info (name and phone)
   const hasCompleteInfo = existingUser && existingUser.name && existingUser.phone;
@@ -155,12 +156,15 @@ async function processTaxiConversation(sock, message, sender) {
     case STATES.AWAITING_NAME:
       conversation.userInfo.name = messageContent;
 
-      // Update user and ride in database
+      // Update user in database
       if (conversation.rideId) {
-        await prisma.user.update({
-          where: { jid: sender },
-          data: { name: messageContent }
-        });
+        const user = await findUserByIdentifier(sender);
+        if (user) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { name: messageContent }
+          });
+        }
       }
 
       conversation.state = STATES.AWAITING_PHONE;
@@ -176,10 +180,13 @@ async function processTaxiConversation(sock, message, sender) {
 
         // Update user in database
         if (conversation.rideId) {
-          await prisma.user.update({
-            where: { jid: sender },
-            data: { phone: messageContent }
-          });
+          const user = await findUserByIdentifier(sender);
+          if (user) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { phone: messageContent }
+            });
+          }
         }
 
         conversation.state = STATES.AWAITING_LOCATION_TEXT;
@@ -444,9 +451,6 @@ async function processTaxiConversation(sock, message, sender) {
           }
         });
 
-        conversation.state = STATES.AWAITING_DRIVER_ACCEPTANCE;
-        await saveConversationState(sender, conversation);
-
         logger.info(`🔄 Rebroadcasting ride ${conversation.rideId} after driver cancellation`);
 
         // Send confirmation and rebroadcast
@@ -454,8 +458,10 @@ async function processTaxiConversation(sock, message, sender) {
           text: t.rideRebroadcast(conversation.rideId)
         });
 
-        // Broadcast to drivers
+        // Broadcast to drivers and clean up conversation
+        activeConversations.delete(sender);
         clearConversationTimeouts(sender);
+        await deleteConversationState(sender, 'ride_rebroadcast');
         await rebroadcastRideAfterDriverCancel(sock, cancelledRide, conversation);
       } else if (driverCancelChoice === '2') {
         // User wants to cancel

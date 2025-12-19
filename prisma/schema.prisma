@@ -16,7 +16,8 @@ datasource db {
 // User model - tracks all passengers/users with their profile
 model User {
   id                Int      @id @default(autoincrement())
-  jid               String   @unique  // WhatsApp JID (unique identifier)
+  jid               String?  @unique  // WhatsApp JID (phone-based: xxx@s.whatsapp.net)
+  lid               String?  @unique  // WhatsApp LID (linked account: xxx@lid)
   name              String?
   phone             String?
   reputation        Float?   // Average rating from drivers (1.0 to 5.0)
@@ -30,16 +31,18 @@ model User {
   ratingsReceived   Rating[]          @relation("RatingsReceived")
 
   @@index([jid])
+  @@index([lid])
   @@map("users")
 }
 
 // Driver model - tracks all drivers
 model Driver {
   id                Int      @id @default(autoincrement())
-  jid               String   @unique  // WhatsApp JID (unique identifier)
+  jid               String?  @unique  // WhatsApp JID (phone-based: xxx@s.whatsapp.net)
+  lid               String?  @unique  // WhatsApp LID (linked account: xxx@lid)
   name              String?
   phone             String?
-  cpf               String?  // Brazilian CPF (Tax ID)
+  cpf               String?  @unique  // Brazilian CPF (Tax ID) - upgraded to unique for driver lookup
   email             String?  // Email address
   isActive          Boolean  @default(true)
   isTaxiDriver      Boolean  @default(false)
@@ -54,6 +57,7 @@ model Driver {
   ratingsReceived   Rating[]          @relation("DriverRatingsReceived")
 
   @@index([jid])
+  @@index([lid])
   @@index([cpf])
   @@index([isTaxiDriver])
   @@index([isMotoTaxiDriver])

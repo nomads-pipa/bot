@@ -1,4 +1,4 @@
-const { prisma } = require('./utils');
+const { prisma, getPrimaryIdentifier } = require('./utils');
 const { createFileLogger } = require('../utils/file-logger');
 const { activeConversations, activeRideTimeouts, TRANSLATIONS } = require('./constants');
 const { resetConversationTimeout } = require('./conversation-timeout');
@@ -140,21 +140,21 @@ async function restoreRideTimeouts(sock) {
 
       const t = TRANSLATIONS[ride.language];
       try {
-        await sock.sendMessage(ride.user.jid, {
+        await sock.sendMessage(getPrimaryIdentifier(ride.user), {
           text: t.rideExpired(waitTimeMinutes)
         });
       } catch (error) {
         logger.error(`Failed to send expiration message:`, error);
       }
 
-      activeConversations.delete(ride.user.jid);
-      clearConversationTimeouts(ride.user.jid);
+      activeConversations.delete(getPrimaryIdentifier(ride.user));
+      clearConversationTimeouts(getPrimaryIdentifier(ride.user));
 
       expiredCount++;
     } else {
       // Reschedule
       const timeoutId = setTimeout(() => {
-        handleRideTimeout(sock, ride.id, ride.user.jid, waitTimeMinutes, ride.language);
+        handleRideTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), waitTimeMinutes, ride.language);
       }, timeRemaining);
 
       activeRideTimeouts.set(ride.id, timeoutId);
