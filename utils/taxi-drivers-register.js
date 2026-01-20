@@ -8,12 +8,20 @@ const prisma = new PrismaClient();
 // Registration states
 const STATES = {
   IDLE: 'idle',
+  AWAITING_CPF_LOOKUP: 'awaiting_cpf_lookup', // Ask for CPF when JID/LID not found
   AWAITING_NAME: 'awaiting_name',
   AWAITING_PHONE: 'awaiting_phone',
   AWAITING_CPF: 'awaiting_cpf',
   AWAITING_EMAIL: 'awaiting_email',
   AWAITING_VEHICLE_TYPE: 'awaiting_vehicle_type',
   AWAITING_CONFIRMATION: 'awaiting_confirmation',
+  // Update flow states
+  UPDATE_MENU: 'update_menu',
+  UPDATE_NAME: 'update_name',
+  UPDATE_PHONE: 'update_phone',
+  UPDATE_EMAIL: 'update_email',
+  UPDATE_VEHICLE_TYPE: 'update_vehicle_type',
+  UPDATE_CONFIRMATION: 'update_confirmation',
   COMPLETED: 'completed'
 };
 
@@ -34,6 +42,7 @@ const MESSAGES = {
   phone: '📱 Qual é o seu número de telefone com DDI?\n\n_Exemplo: +55 84 9 1234-5678_',
   phoneInvalid: '❌ Formato de telefone inválido. Por favor inclua o código do país começando com + (ex: +55 84 9 1234-5678)',
   cpf: '🆔 Qual é o seu CPF?\n\n_Formato: 123.456.789-10 ou 12345678910_',
+  cpfLookup: '🆔 Para continuar, por favor informe seu CPF:\n\n_Formato: 123.456.789-10 ou 12345678910_',
   cpfInvalid: '❌ CPF inválido. Por favor insira um CPF válido no formato 123.456.789-10 ou apenas os 11 números.',
   email: '📧 Qual é o seu e-mail?\n\n_Exemplo: motorista@email.com_',
   emailInvalid: '❌ E-mail inválido. Por favor insira um endereço de e-mail válido (ex: motorista@email.com)',
@@ -53,12 +62,55 @@ Responda:
 *CONFIRMAR* - para completar o cadastro
 *CANCELAR* - para cancelar`,
   confirmationInvalid: '❌ Por favor responda com *CONFIRMAR* para completar ou *CANCELAR* para cancelar.',
-  cancelled: '❌ Cadastro cancelado. Envie "cadastrar motorista" para começar novamente.',
+  cancelled: '❌ Cadastro cancelado. Envie "cadastrar motorista" novamente para começar um novo cadastro.',
   success: '✅ *Cadastro completado com sucesso!*\n\nVocê agora está registrado na nossa plataforma e começará a receber solicitações de corrida.\n\nBoa sorte! 🚖',
-  alreadyRegistered: '✅ Você já está cadastrado como motorista!\n\nSe precisar atualizar suas informações, entre em contato com o suporte.',
-  timeoutWarning: '⚠️ Aviso: Você tem 2 minutos e 30 segundos restantes para responder, ou sua sessão de cadastro expirará.',
-  timeoutExpired: '⏰ Sua sessão de cadastro expirou por inatividade. Por favor envie "cadastrar motorista" novamente para começar um novo cadastro.',
-  error: '❌ Ocorreu um erro durante o cadastro. Por favor tente novamente mais tarde ou entre em contato com o suporte.'
+  alreadyRegistered: (driverInfo) => `✅ *Você já está cadastrado como motorista!*
+
+*Nome:* ${driverInfo.name}
+*Telefone:* ${driverInfo.phone}
+*E-mail:* ${driverInfo.email || 'Não informado'}
+*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
+
+O que você gostaria de fazer?
+
+1️⃣ - Atualizar Nome
+2️⃣ - Atualizar Telefone
+3️⃣ - Atualizar E-mail
+4️⃣ - Atualizar Tipo de Veículo
+5️⃣ - Nada, está tudo certo`,
+  welcomeBack: (driverInfo) => `👋 *Bem-vindo de volta, ${driverInfo.name}!*
+
+Encontramos seu cadastro:
+
+*Telefone:* ${driverInfo.phone}
+*E-mail:* ${driverInfo.email || 'Não informado'}
+*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
+
+O que você gostaria de fazer?
+
+1️⃣ - Atualizar Nome
+2️⃣ - Atualizar Telefone
+3️⃣ - Atualizar E-mail
+4️⃣ - Atualizar Tipo de Veículo
+5️⃣ - Nada, está tudo certo`,
+  identifierUpdated: '✅ Atualizamos as informações da sua conta do WhatsApp.',
+  updateMenuInvalid: '❌ Por favor selecione uma opção válida (1, 2, 3, 4 ou 5).',
+  updateComplete: '✅ *Informações atualizadas com sucesso!*\n\nSuas informações foram atualizadas na plataforma.',
+  updateCancelled: '✅ Tudo certo! Suas informações permanecem como estão.',
+  updateConfirmation: (field, oldValue, newValue) => `📋 *Confirme a atualização:*
+
+*${field}*
+Valor atual: ${oldValue}
+Novo valor: ${newValue}
+
+Deseja confirmar esta atualização?
+
+Responda:
+*CONFIRMAR* - para atualizar
+*CANCELAR* - para manter o valor atual`,
+  timeoutWarning: '⚠️ Aviso: Você tem 2 minutos e 30 segundos restantes para responder, ou sua sessão expirará.',
+  timeoutExpired: '⏰ Sua sessão expirou por inatividade. Por favor envie "sou motorista" novamente para começar.',
+  error: '❌ Ocorreu um erro. Por favor tente novamente mais tarde ou entre em contato com o suporte.'
 };
 
 /**
@@ -222,22 +274,43 @@ function formatCPF(cpf) {
 }
 
 /**
- * Start driver registration
+ * Start driver registration or update flow
  */
 async function startDriverRegistration(sock, driverJid) {
   try {
-    // Check if driver is already registered
+    // Step 1: Check if driver is already registered by LID/JID
     const existingDriver = await findDriverByIdentifier(driverJid);
 
     if (existingDriver) {
-      await sock.sendMessage(driverJid, { text: MESSAGES.alreadyRegistered });
-      logger.info(`Driver ${driverJid} attempted to register but already exists`);
+      // Driver found by LID/JID - show update menu immediately
+      await sock.sendMessage(driverJid, { text: MESSAGES.alreadyRegistered(existingDriver) });
+
+      // Initialize update state
+      activeRegistrations.set(driverJid, {
+        state: STATES.UPDATE_MENU,
+        driverId: existingDriver.id,
+        existingDriver: existingDriver,
+        name: null,
+        phone: null,
+        cpf: null,
+        email: null,
+        isTaxiDriver: false,
+        isMotoTaxiDriver: false,
+        updateField: null,
+        oldValue: null,
+        newValue: null
+      });
+
+      // Start timeout timer
+      startRegistrationTimeout(sock, driverJid);
+
+      logger.info(`Driver ${driverJid} already exists - showing update menu`);
       return;
     }
 
-    // Initialize registration state
+    // Step 2: Driver not found by LID/JID - ask for CPF
     activeRegistrations.set(driverJid, {
-      state: STATES.AWAITING_NAME,
+      state: STATES.AWAITING_CPF_LOOKUP,
       name: null,
       phone: null,
       cpf: null,
@@ -249,11 +322,10 @@ async function startDriverRegistration(sock, driverJid) {
     // Start timeout timer
     startRegistrationTimeout(sock, driverJid);
 
-    // Send greeting and first question
-    await sock.sendMessage(driverJid, { text: MESSAGES.greeting });
-    await sock.sendMessage(driverJid, { text: MESSAGES.name });
+    // Ask for CPF
+    await sock.sendMessage(driverJid, { text: MESSAGES.cpfLookup });
 
-    logger.info(`Started driver registration for ${driverJid}`);
+    logger.info(`Started driver registration/lookup for ${driverJid} - awaiting CPF`);
   } catch (error) {
     logger.error(`Error starting driver registration for ${driverJid}:`, error);
     await sock.sendMessage(driverJid, { text: MESSAGES.error });
@@ -288,6 +360,66 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
 
     // Process based on current state
     switch (regState.state) {
+      case STATES.AWAITING_CPF_LOOKUP:
+        // Validate CPF format
+        if (!validateCPF(trimmedMessage)) {
+          await sock.sendMessage(driverJid, { text: MESSAGES.cpfInvalid });
+          return true;
+        }
+
+        const cleanCPF = formatCPF(trimmedMessage);
+
+        // Look up driver by CPF
+        const driverByCPF = await prisma.driver.findUnique({
+          where: { cpf: cleanCPF }
+        });
+
+        if (driverByCPF) {
+          // CPF found - driver exists but with different LID/JID
+          // Check if we need to update the identifier
+          const identifierFields = prepareIdentifierFields(driverJid);
+          let needsIdentifierUpdate = false;
+
+          if (identifierFields.jid && driverByCPF.jid !== identifierFields.jid) {
+            needsIdentifierUpdate = true;
+          } else if (identifierFields.lid && driverByCPF.lid !== identifierFields.lid) {
+            needsIdentifierUpdate = true;
+          }
+
+          // Update LID/JID if needed
+          if (needsIdentifierUpdate) {
+            await prisma.driver.update({
+              where: { id: driverByCPF.id },
+              data: identifierFields
+            });
+
+            logger.info(`Updated identifier for driver ${driverByCPF.id} from ${driverByCPF.jid || driverByCPF.lid} to ${driverJid}`);
+
+            // Notify user about identifier update
+            await sock.sendMessage(driverJid, { text: MESSAGES.identifierUpdated });
+          }
+
+          // Show welcome back message with update menu
+          await sock.sendMessage(driverJid, { text: MESSAGES.welcomeBack(driverByCPF) });
+
+          // Set state to update menu
+          regState.state = STATES.UPDATE_MENU;
+          regState.driverId = driverByCPF.id;
+          regState.existingDriver = driverByCPF;
+
+          logger.info(`Driver found by CPF - ${driverByCPF.name} (${driverJid})`);
+        } else {
+          // CPF not found - start full registration flow
+          regState.cpf = cleanCPF;
+          regState.state = STATES.AWAITING_NAME;
+
+          await sock.sendMessage(driverJid, { text: MESSAGES.greeting });
+          await sock.sendMessage(driverJid, { text: MESSAGES.name });
+
+          logger.info(`CPF not found - starting new registration for ${driverJid}`);
+        }
+        break;
+
       case STATES.AWAITING_NAME:
         if (trimmedMessage.length < 3) {
           await sock.sendMessage(driverJid, { text: '❌ Por favor insira um nome válido.' });
@@ -306,8 +438,15 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
         }
 
         regState.phone = trimmedMessage;
-        regState.state = STATES.AWAITING_CPF;
-        await sock.sendMessage(driverJid, { text: MESSAGES.cpf });
+
+        // If we already have CPF (from lookup), skip to email
+        if (regState.cpf) {
+          regState.state = STATES.AWAITING_EMAIL;
+          await sock.sendMessage(driverJid, { text: MESSAGES.email });
+        } else {
+          regState.state = STATES.AWAITING_CPF;
+          await sock.sendMessage(driverJid, { text: MESSAGES.cpf });
+        }
         break;
 
       case STATES.AWAITING_CPF:
@@ -390,6 +529,152 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
           clearRegistrationTimeout(driverJid);
 
           logger.info(`Driver registration cancelled by ${driverJid}`);
+        } else {
+          await sock.sendMessage(driverJid, { text: MESSAGES.confirmationInvalid });
+        }
+        break;
+
+      case STATES.UPDATE_MENU:
+        // Handle update menu selection
+        const menuChoice = trimmedMessage;
+
+        if (menuChoice === '1') {
+          // Update name
+          regState.state = STATES.UPDATE_NAME;
+          regState.updateField = 'Nome';
+          regState.oldValue = regState.existingDriver.name;
+          await sock.sendMessage(driverJid, { text: MESSAGES.name });
+        } else if (menuChoice === '2') {
+          // Update phone
+          regState.state = STATES.UPDATE_PHONE;
+          regState.updateField = 'Telefone';
+          regState.oldValue = regState.existingDriver.phone;
+          await sock.sendMessage(driverJid, { text: MESSAGES.phone });
+        } else if (menuChoice === '3') {
+          // Update email
+          regState.state = STATES.UPDATE_EMAIL;
+          regState.updateField = 'E-mail';
+          regState.oldValue = regState.existingDriver.email;
+          await sock.sendMessage(driverJid, { text: MESSAGES.email });
+        } else if (menuChoice === '4') {
+          // Update vehicle type
+          regState.state = STATES.UPDATE_VEHICLE_TYPE;
+          regState.updateField = 'Tipo de Veículo';
+          regState.oldValue = regState.existingDriver.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗';
+          await sock.sendMessage(driverJid, { text: MESSAGES.vehicleType });
+        } else if (menuChoice === '5') {
+          // Nothing to update
+          await sock.sendMessage(driverJid, { text: MESSAGES.updateCancelled });
+
+          // Clean up
+          activeRegistrations.delete(driverJid);
+          clearRegistrationTimeout(driverJid);
+
+          logger.info(`Driver ${driverJid} chose not to update info`);
+        } else {
+          await sock.sendMessage(driverJid, { text: MESSAGES.updateMenuInvalid });
+        }
+        break;
+
+      case STATES.UPDATE_NAME:
+        if (trimmedMessage.length < 3) {
+          await sock.sendMessage(driverJid, { text: '❌ Por favor insira um nome válido.' });
+          return true;
+        }
+
+        regState.newValue = trimmedMessage;
+        regState.state = STATES.UPDATE_CONFIRMATION;
+        await sock.sendMessage(driverJid, {
+          text: MESSAGES.updateConfirmation(regState.updateField, regState.oldValue, regState.newValue)
+        });
+        break;
+
+      case STATES.UPDATE_PHONE:
+        if (!validatePhone(trimmedMessage)) {
+          await sock.sendMessage(driverJid, { text: MESSAGES.phoneInvalid });
+          return true;
+        }
+
+        regState.newValue = trimmedMessage;
+        regState.state = STATES.UPDATE_CONFIRMATION;
+        await sock.sendMessage(driverJid, {
+          text: MESSAGES.updateConfirmation(regState.updateField, regState.oldValue, regState.newValue)
+        });
+        break;
+
+      case STATES.UPDATE_EMAIL:
+        if (!validateEmail(trimmedMessage)) {
+          await sock.sendMessage(driverJid, { text: MESSAGES.emailInvalid });
+          return true;
+        }
+
+        regState.newValue = trimmedMessage.trim();
+        regState.state = STATES.UPDATE_CONFIRMATION;
+        await sock.sendMessage(driverJid, {
+          text: MESSAGES.updateConfirmation(regState.updateField, regState.oldValue, regState.newValue)
+        });
+        break;
+
+      case STATES.UPDATE_VEHICLE_TYPE:
+        const vehicleChoice = trimmedMessage;
+
+        if (vehicleChoice !== '1' && vehicleChoice !== '2') {
+          await sock.sendMessage(driverJid, { text: MESSAGES.vehicleTypeInvalid });
+          return true;
+        }
+
+        const newVehicleType = vehicleChoice === '1' ? 'Mototaxi 🏍️' : 'Táxi 🚗';
+        regState.newValue = vehicleChoice;
+        regState.state = STATES.UPDATE_CONFIRMATION;
+        await sock.sendMessage(driverJid, {
+          text: MESSAGES.updateConfirmation(regState.updateField, regState.oldValue, newVehicleType)
+        });
+        break;
+
+      case STATES.UPDATE_CONFIRMATION:
+        const confirmMessage = trimmedMessage.toUpperCase();
+
+        if (confirmMessage === 'CONFIRMAR' || confirmMessage === 'CONFIRM') {
+          // Determine which field to update
+          const updateData = {};
+
+          if (regState.updateField === 'Nome') {
+            updateData.name = regState.newValue;
+          } else if (regState.updateField === 'Telefone') {
+            updateData.phone = regState.newValue;
+          } else if (regState.updateField === 'E-mail') {
+            updateData.email = regState.newValue;
+          } else if (regState.updateField === 'Tipo de Veículo') {
+            if (regState.newValue === '1') {
+              updateData.isMotoTaxiDriver = true;
+              updateData.isTaxiDriver = false;
+            } else {
+              updateData.isMotoTaxiDriver = false;
+              updateData.isTaxiDriver = true;
+            }
+          }
+
+          // Update in database
+          await prisma.driver.update({
+            where: { id: regState.driverId },
+            data: updateData
+          });
+
+          await sock.sendMessage(driverJid, { text: MESSAGES.updateComplete });
+
+          // Clean up
+          activeRegistrations.delete(driverJid);
+          clearRegistrationTimeout(driverJid);
+
+          logger.info(`✅ Successfully updated ${regState.updateField} for driver ${driverJid}`);
+        } else if (confirmMessage === 'CANCELAR' || confirmMessage === 'CANCEL') {
+          await sock.sendMessage(driverJid, { text: MESSAGES.updateCancelled });
+
+          // Clean up
+          activeRegistrations.delete(driverJid);
+          clearRegistrationTimeout(driverJid);
+
+          logger.info(`Driver ${driverJid} cancelled update`);
         } else {
           await sock.sendMessage(driverJid, { text: MESSAGES.confirmationInvalid });
         }

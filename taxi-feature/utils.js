@@ -28,7 +28,8 @@ function isJid(identifier) {
 
 function isTaxiRequest(message) {
   const lowerMsg = message.toLowerCase();
-  const isRequest = lowerMsg.includes('mototaxi') || lowerMsg.includes('taxi');
+  const isRequest = lowerMsg.includes('mototaxi') || lowerMsg.includes('mototáxi') ||
+                    lowerMsg.includes('taxi') || lowerMsg.includes('táxi');
   const isTestMode = lowerMsg.includes('test');
 
   return {

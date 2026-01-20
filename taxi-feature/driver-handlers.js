@@ -84,41 +84,12 @@ async function processDriverResponse(sock, message, sender) {
     return true;
   }
 
-  const ride = await prisma.taxiRide.findUnique({
-    where: { id: rideId },
-    include: { user: true }
-  });
-
-  if (!ride) {
-    await sock.sendMessage(sender, {
-      text: '❌ Nenhuma corrida encontrada com este número.'
-    });
-    return true;
-  }
-
-  if (ride.status === 'expired') {
-    await sock.sendMessage(sender, {
-      text: '❌ Esta corrida expirou porque nenhum motorista aceitou dentro do tempo de espera.'
-    });
-    return true;
-  }
-
-  if (ride.status === 'completed') {
-    await sock.sendMessage(sender, {
-      text: '❌ Esta corrida já foi aceita por outro motorista.'
-    });
-    return true;
-  }
-
-  if (ride.status !== 'pending') {
-    await sock.sendMessage(sender, {
-      text: '❌ Esta corrida não está mais disponível.'
-    });
-    return true;
-  }
-
-  // Get registered driver (we already verified they exist and are registered)
+  // Get registered driver first (we already verified they exist and are registered)
   const driver = await findDriverByIdentifier(normalizedJid);
+
+  // Use the driver's reliable messaging identifier (prefers JID over LID)
+  const driverMessagingId = getMessagingIdentifier(driver);
+  logger.info(`🔍 Driver ${normalizedJid} messaging via ${driverMessagingId}`);
 
   // Update driver record with current identifier (JID or LID) if not already present
   const identifierFields = prepareIdentifierFields(normalizedJid);
@@ -129,6 +100,85 @@ async function processDriverResponse(sock, message, sender) {
     });
   }
 
+  const ride = await prisma.taxiRide.findUnique({
+    where: { id: rideId },
+    include: { user: true }
+  });
+
+  if (!ride) {
+    logger.info(`📤 Ride ${rideId} not found, sending message to ${driverMessagingId}`);
+    await sock.sendMessage(driverMessagingId, {
+      text: '❌ Nenhuma corrida encontrada com este número.'
+    });
+    logger.info(`✅ Sent "ride not found" message to ${driverMessagingId}`);
+    return true;
+  }
+
+  if (ride.status === 'expired') {
+    logger.info(`📤 Ride ${rideId} expired, sending message to ${driverMessagingId}`);
+    await sock.sendMessage(driverMessagingId, {
+      text: '❌ Esta corrida expirou porque nenhum motorista aceitou dentro do tempo de espera.'
+    });
+    logger.info(`✅ Sent "ride expired" message to ${driverMessagingId}`);
+    return true;
+  }
+
+  logger.info(`🔍 processDriverResponse - Ride ${rideId} status check: ${ride.status}`);
+
+  if (ride.status === 'completed') {
+    // Check if this driver is the one who accepted
+    const existingAssignment = await prisma.rideAssignment.findUnique({
+      where: { rideId: rideId },
+      include: { driver: true }
+    });
+
+    if (existingAssignment && existingAssignment.driverId === driver.id) {
+      // This driver already accepted - remind them with passenger details
+      logger.info(`ℹ️ Driver ${normalizedJid} tried to re-accept their own ride ${rideId}`);
+
+      // Format passenger reputation
+      const passengerRep = formatReputation(ride.user.reputation, 'pt');
+
+      logger.info(`📤 Sending "already accepted" reminder to ${driverMessagingId} for ride ${rideId}`);
+      await sock.sendMessage(driverMessagingId, {
+        text: `✅ Você já aceitou esta corrida!
+
+*Detalhes do Passageiro:*
+Nome: ${ride.user.name}
+Telefone: ${ride.user.phone}
+Reputação: ${passengerRep}
+Local: ${ride.locationText}
+Destino: ${ride.destination}
+Identificação: ${ride.identifier}
+Tempo de espera: ${ride.waitTime} minutos
+
+📞 *Entre em contato com o passageiro para mais detalhes.*
+💰 *Por favor, acerte o valor com o passageiro.*
+
+Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
+      });
+      logger.info(`✅ Sent "already accepted" reminder to ${driverMessagingId}`);
+      return true;
+    }
+
+    // Another driver accepted
+    logger.info(`📤 Ride ${rideId} accepted by another driver, sending message to ${driverMessagingId}`);
+    await sock.sendMessage(driverMessagingId, {
+      text: '❌ Esta corrida já foi aceita por outro motorista.'
+    });
+    logger.info(`✅ Sent "accepted by another driver" message to ${driverMessagingId}`);
+    return true;
+  }
+
+  if (ride.status !== 'pending') {
+    logger.info(`📤 Ride ${rideId} not available (status: ${ride.status}), sending message to ${driverMessagingId}`);
+    await sock.sendMessage(driverMessagingId, {
+      text: '❌ Esta corrida não está mais disponível.'
+    });
+    logger.info(`✅ Sent "not available" message to ${driverMessagingId}`);
+    return true;
+  }
+
   // Check if there's already an assignment for this ride (shouldn't happen, but handle it)
   const existingAssignment = await prisma.rideAssignment.findUnique({
     where: { rideId: rideId }
@@ -137,9 +187,11 @@ async function processDriverResponse(sock, message, sender) {
   if (existingAssignment) {
     // Assignment already exists - this ride was already accepted
     logger.warn(`⚠️ Ride ${rideId} already has an assignment to driver ${existingAssignment.driverId}`);
-    await sock.sendMessage(sender, {
+    logger.info(`📤 Sending "already accepted" message to ${driverMessagingId}`);
+    await sock.sendMessage(driverMessagingId, {
       text: '❌ Esta corrida já foi aceita por outro motorista.'
     });
+    logger.info(`✅ Sent "already accepted by other driver" message to ${driverMessagingId}`);
     return true;
   }
 
@@ -169,15 +221,14 @@ async function processDriverResponse(sock, message, sender) {
   // Clear keepalive interval
   clearKeepaliveInterval(rideId);
 
-  const driverJid = normalizedJid;
   const passengerJid = getPrimaryIdentifier(ride.user);
 
-  await scheduleFeedbackMessages(sock, ride.id, passengerJid, driverJid, ride.language);
+  await scheduleFeedbackMessages(sock, ride.id, passengerJid, driverMessagingId, ride.language);
 
   // Format passenger reputation for driver message
   const passengerRep = formatReputation(ride.user.reputation, 'pt');
 
-  await sock.sendMessage(driverJid, {
+  await sock.sendMessage(driverMessagingId, {
     text: `✅ Corrida #${ride.id} aceita com sucesso! O passageiro será notificado.
 
 *Detalhes do Passageiro:*
@@ -199,7 +250,7 @@ Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
 
   logger.info(`✉️ Sending ride acceptance to passenger:
     - Ride ID: ${ride.id}
-    - Driver JID: ${driverJid}
+    - Driver messaging ID: ${driverMessagingId}
     - Driver Name: ${driver.name || 'Not set'}
     - Driver Phone: ${driver.phone || 'Not set'}`);
 
@@ -207,8 +258,8 @@ Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
   const driverRep = formatReputation(driver.reputation, ride.language);
 
   await sock.sendMessage(passengerJid, {
-    text: t.rideAccepted(ride.id, driverJid, driver.name, driver.phone, driverRep),
-    mentions: [driverJid]
+    text: t.rideAccepted(ride.id, driverMessagingId, driver.name, driver.phone, driverRep),
+    mentions: [driverMessagingId]
   });
 
   activeConversations.delete(getPrimaryIdentifier(ride.user));
@@ -217,7 +268,7 @@ Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
 
   userRideMap.set(getPrimaryIdentifier(ride.user), rideId);
 
-  logger.info(`✅ Ride ${rideId} accepted by driver ${sender}`);
+  logger.info(`✅ Ride ${rideId} accepted by driver ${sender} via messaging ID ${driverMessagingId}`);
 
   return true;
 }
@@ -562,16 +613,54 @@ async function processCpfValidation(sock, message, sender) {
   }
 
   if (ride.status === 'completed') {
+    // Check if this driver is the one who accepted
+    const existingAssignment = await prisma.rideAssignment.findUnique({
+      where: { rideId: rideId },
+      include: { driver: true }
+    });
+
+    if (existingAssignment && existingAssignment.driverId === driver.id) {
+      // This driver already accepted - remind them with passenger details
+      logger.info(`ℹ️ Driver ${sender} tried to re-accept their own ride ${rideId} during CPF validation`);
+
+      // Format passenger reputation
+      const passengerRep = formatReputation(ride.user.reputation, 'pt');
+
+      await sock.sendMessage(sender, {
+        text: `✅ Você já aceitou esta corrida!
+
+*Detalhes do Passageiro:*
+Nome: ${ride.user.name}
+Telefone: ${ride.user.phone}
+Reputação: ${passengerRep}
+Local: ${ride.locationText}
+Destino: ${ride.destination}
+Identificação: ${ride.identifier}
+Tempo de espera: ${ride.waitTime} minutos
+
+📞 *Entre em contato com o passageiro para mais detalhes.*
+💰 *Por favor, acerte o valor com o passageiro.*
+
+Para cancelar esta corrida, responda: *cancelar ${ride.id}*`
+      });
+      return true;
+    }
+
+    // Another driver accepted
+    logger.info(`📤 Ride ${rideId} accepted by another driver, sending message to ${sender}`);
     await sock.sendMessage(sender, {
       text: '❌ Esta corrida já foi aceita por outro motorista.'
     });
+    logger.info(`✅ Sent "accepted by another driver" message to ${sender}`);
     return true;
   }
 
   if (ride.status !== 'pending') {
+    logger.info(`📤 Ride ${rideId} not available (status: ${ride.status}), sending message to ${sender}`);
     await sock.sendMessage(sender, {
       text: '❌ Esta corrida não está mais disponível.'
     });
+    logger.info(`✅ Sent "not available" message to ${sender}`);
     return true;
   }
 
@@ -583,9 +672,11 @@ async function processCpfValidation(sock, message, sender) {
   if (existingAssignment) {
     // Assignment already exists - this ride was already accepted
     logger.warn(`⚠️ Ride ${rideId} already has an assignment to driver ${existingAssignment.driverId}`);
+    logger.info(`📤 Sending "already accepted" message to ${sender}`);
     await sock.sendMessage(sender, {
       text: '❌ Esta corrida já foi aceita por outro motorista.'
     });
+    logger.info(`✅ Sent "already accepted by other driver" message to ${sender}`);
     return true;
   }
 

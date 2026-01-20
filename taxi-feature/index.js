@@ -48,14 +48,20 @@ async function processTaxiMessage(sock, message, sender) {
   if (isDriverCancellation) return true;
 
   // Check for rating response BEFORE driver response to avoid conflict with numeric ride IDs
+  logger.info(`🔍 Checking rating response...`);
   const isRating = await processRatingResponse(sock, message, sender);
+  logger.info(`🔍 isRating: ${isRating}`);
   if (isRating) return true;
 
   // Check for invalid rating attempts and provide helpful feedback
+  logger.info(`🔍 Checking invalid rating attempt...`);
   const isInvalidRating = await checkInvalidRatingAttempt(sock, message, sender);
+  logger.info(`🔍 isInvalidRating: ${isInvalidRating}`);
   if (isInvalidRating) return true;
 
+  logger.info(`🔍 Checking driver response...`);
   const isDriverResponse = await processDriverResponse(sock, message, sender);
+  logger.info(`🔍 isDriverResponse: ${isDriverResponse}`);
   if (isDriverResponse) return true;
 
   // Check for ride history request
