@@ -4,9 +4,9 @@ const logger = createFileLogger();
 
 const prisma = new PrismaClient();
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODEL = 'google/gemini-2.0-flash-001';
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-001';
 
 const NATAL_KEYWORDS = ['Natal'];
 
