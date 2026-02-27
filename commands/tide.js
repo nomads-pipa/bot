@@ -32,11 +32,11 @@ async function getTideData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1
             const tideData = response.data.data;
             const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
             let message = `*🌊🏄‍♂️🏖️🐬 Tide Extremes for Praia de Pipa - ${dateFormatted} ☀️*\n\n`;
-            message += `_This is approximate data, gathered using StormGlass API._\n\n`;
+            message += `_This is tomorrow's approximate data, gathered using https://stormglass.io/ API._\n\n`;
             tideData.forEach((tide) => {
                 const timeUTC = moment.utc(tide.time);
                 const timeSaoPaulo = timeUTC.tz('America/Sao_Paulo').format('HH:mm');
-                message += `\n${tide.type}: ${timeSaoPaulo}, Height: ${tide.height.toFixed(2)}m`;
+                message += `\n*${tide.type}*: ${timeSaoPaulo}, Height: ${tide.height.toFixed(2)}m`;
             });
             return message;
         } catch (error) {

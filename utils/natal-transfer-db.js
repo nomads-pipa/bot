@@ -4,7 +4,9 @@ const logger = createFileLogger();
 
 const prisma = new PrismaClient();
 
-const CHATGPT_WHATSAPP = '18002428478@s.whatsapp.net';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_MODEL = 'google/gemini-2.0-flash-001';
 
 const NATAL_KEYWORDS = ['Natal'];
 
@@ -27,10 +29,13 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
 
     logger.info(`Detected potential Natal transfer message from ${sender}: ${message}`);
 
-    const currentYear = new Date().getFullYear();
-    const parsedRide = await askChatGPT(sock, `Parse this message and organize. check the intention.\n\nCurrent year: ${currentYear}\n\nIf it's affirmative (someone offering a ride, saying that they are arriving in Natal or Pipa), organize the date in a structured format like this example:\n{ "user": "User Name", "direction": "To Airport or From Airport", "datetime": "YYYY-MM-DDTHH:MM:SS", "original_msg": "original message" }\n\nIMPORTANT: When parsing dates without a year, assume the current year (${currentYear}) or next year if the date has already passed this year.\n\nIf it's a question (someone asking for a ride), respond with "question intention".\n\nMessage: "${message}"`);
+    const now = new Date();
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDateContext = `Today is ${weekdays[now.getDay()]}, ${now.toISOString().slice(0, 10)} (YYYY-MM-DD). Current time: ${now.toTimeString().slice(0, 5)} (local).`;
 
-    logger.info(`ChatGPT parsed response: ${parsedRide}`);
+    const parsedRide = await askOpenRouter(currentDateContext, message);
+
+    logger.info(`OpenRouter parsed response: ${parsedRide}`);
 
     if (parsedRide.includes('question intention')) {
       logger.info(`Detected question intention from ${sender}, not showing board`);
@@ -95,11 +100,11 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
               return false;
           }
         } else {
-          logger.warn(`Failed to parse JSON from ChatGPT response: ${parsedRide}`);
+          logger.warn(`Failed to parse JSON from Tavily response: ${parsedRide}`);
           return false;
         }
       } catch (parseError) {
-        logger.error(`Error parsing ride info from ChatGPT response: ${parseError}`);
+        logger.error(`Error parsing ride info from Tavily response: ${parseError}`);
         return false;
       }
     }
@@ -109,41 +114,51 @@ async function processNatalTransferMessage(sock, message, sender, groupId, incom
   }
 }
 
-async function askChatGPT(sock, message) {
-  return new Promise((resolve, reject) => {
-    let responseTimeout;
+async function askOpenRouter(currentDateContext, userMessage) {
+  const systemPrompt = `You parse WhatsApp messages from a community group in Pipa, Brazil. People share rides to/from Natal (the nearest city with an airport).
 
-    function responseHandler(msg) {
-      if (msg.type === 'notify') {
-        for (const message of msg.messages) {
-          if (message.key.remoteJid === CHATGPT_WHATSAPP && !message.key.fromMe) {
-            const responseText = message.message.conversation ||
-                                 message.message.extendedTextMessage?.text || '';
+${currentDateContext}
 
-            if (responseText) {
-              clearTimeout(responseTimeout);
-              sock.ev.off('messages.upsert', responseHandler);
-              resolve(responseText);
-              return;
-            }
-          }
-        }
-      }
-    }
+Your job: determine if the message is an OFFER (someone offering a ride) or a QUESTION (someone looking for a ride).
 
-    sock.ev.on('messages.upsert', responseHandler);
+If it's an OFFER, reply ONLY with valid JSON (no markdown, no extra text):
+{"user":"User Name","direction":"To Airport or From Airport","datetime":"YYYY-MM-DDTHH:MM:SS","original_msg":"original message"}
 
-    sock.sendMessage(CHATGPT_WHATSAPP, { text: message })
-      .catch(err => {
-        sock.ev.off('messages.upsert', responseHandler);
-        reject(err);
-      });
+Rules for resolving dates:
+- Use the current date above to resolve relative expressions like "today", "tomorrow", "next Monday", etc.
+- If no year is mentioned, use the current year. If the resulting date has already passed, use next year.
+- If no time is mentioned, use 00:00:00.
+- "direction" must be either "To Airport" (Pipa → Natal) or "From Airport" (Natal → Pipa).
 
-    responseTimeout = setTimeout(() => {
-      sock.ev.off('messages.upsert', responseHandler);
-      reject(new Error('Timeout waiting for ChatGPT response'));
-    }, 30000);
+If it's a QUESTION (someone asking for a ride), reply with exactly: question intention`;
+
+  const response = await fetch(OPENROUTER_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': 'https://github.com/dn-pipa-whatsapp-bot',
+      'X-Title': 'DN Pipa WhatsApp Bot'
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage }
+      ],
+      temperature: 0
+    })
   });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errText}`);
+  }
+
+  const data = await response.json();
+  const answer = data.choices?.[0]?.message?.content?.trim() || '';
+  logger.info(`OpenRouter raw answer: ${answer}`);
+  return answer;
 }
 
 function formatDateTime(dateStr) {
