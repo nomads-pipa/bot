@@ -70,5 +70,9 @@
     {
         "keywords": ["add my friend"],
         "response": "Please refer to the form to add someone to the group: http://bit.ly/4ftWZDG"
+    },
+    {
+        "keywords": ["padel", "soccer", "football"],
+        "response": "🎾🥎 Check out Sapucaia for Padel and Soccer matches! https://www.instagram.com/sapucaia.ed/"
     }
 ]

@@ -15,7 +15,7 @@ async function getTideData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1
     // Retry logic
     while (retryCount <= maxRetries) {
         try {
-            const now = moment().add(1, 'days');
+            const now = moment().tz('America/Sao_Paulo');
             const startDate = now.clone().startOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
             const endDate = now.clone().add(1, 'days').startOf('day').utc().format('YYYY-MM-DDTHH:mm:ssZ');
             
@@ -32,7 +32,7 @@ async function getTideData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1
             const tideData = response.data.data;
             const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
             let message = `*🌊🏄‍♂️🏖️🐬 Tide Extremes for Praia de Pipa - ${dateFormatted} ☀️*\n\n`;
-            message += `_This is tomorrow's approximate data, gathered using https://stormglass.io/ API._\n\n`;
+            message += `_This is approximate data, gathered using https://stormglass.io/ API._\n\n`;
             tideData.forEach((tide) => {
                 const timeUTC = moment.utc(tide.time);
                 const timeSaoPaulo = timeUTC.tz('America/Sao_Paulo').format('HH:mm');

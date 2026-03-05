@@ -9,7 +9,7 @@ const { sendWaveDataOnce } = require('../commands/wave');
  * @param {String} chatId - Chat ID to send the message to
  * @param {String} time - Time to send the message (HH:MM format)
  */
-function scheduleTideData(sock, chatId, time = '19:29') {
+function scheduleTideData(sock, chatId, time = '04:00') {
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');
@@ -27,7 +27,7 @@ function scheduleTideData(sock, chatId, time = '19:29') {
  * @param {String} chatId - Chat ID to send the message to
  * @param {String} time - Time to send the message (HH:MM format)
  */
-function scheduleAstronomyData(sock, chatId, time = '19:30') {
+function scheduleAstronomyData(sock, chatId, time = '04:01') {
     setInterval(async () => {
         const now = moment().tz('America/Sao_Paulo');
         const currentTime = now.format('HH:mm');

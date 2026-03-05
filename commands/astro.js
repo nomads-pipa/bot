@@ -12,34 +12,34 @@ require('dotenv').config();
 async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1800000) {
     let retryCount = 0;
     let lastError = null;
-    
+
     // Retry logic
     while (retryCount <= maxRetries) {
         try {
-            const now = moment().add(1, 'days');
-            const date = now.clone().format('YYYY-MM-DD');
+            const now = moment().tz('America/Sao_Paulo');
+            const dateFormatted = now.format('DD/MM/YYYY');
 
             const lat = -6.228056;
-            const lng = -35.045833;
+            const lon = -35.045833;
+            const headers = { 'x-api-key': process.env.APIVERVE_API_KEY };
 
-            const url = `https://api.stormglass.io/v2/astronomy/point?lat=${lat}&lng=${lng}&date=${date}`;
+            const [sunResponse, moonRiseResponse, moonPhaseResponse] = await Promise.all([
+                axios.get(`https://api.apiverve.com/v1/sunrisesunset?lat=${lat}&lon=${lon}`, { headers }),
+                axios.get(`https://api.apiverve.com/v1/moonrisemoonset?lat=${lat}&lon=${lon}`, { headers }),
+                axios.get('https://api.apiverve.com/v1/moonphases', { headers }),
+            ]);
 
-            const response = await axios.get(url, {
-                headers: {
-                    'Authorization': process.env.STORMGLASS_API_KEY,
-                },
-            });
-
-            const astronomyData = response.data.data;
-            const dateFormatted = now.tz('America/Sao_Paulo').format('DD/MM/YYYY');
+            const sunData = sunResponse.data.data;
+            const moonRiseData = moonRiseResponse.data.data;
+            const moonPhaseData = moonPhaseResponse.data.data;
 
             let message = `*☀️🌙✨ Astronomy Data for Praia de Pipa - ${dateFormatted} ✨*\n\n`;
-            message += `_This is approximate data, gathered using StormGlass API._\n\n`;
+            message += `_This is approximate data, gathered using APIVerve._\n\n`;
 
             // Sunrise and sunset
-            if (astronomyData[0].sunrise && astronomyData[0].sunset) {
-                const sunriseTime = moment.utc(astronomyData[0].sunrise).tz('America/Sao_Paulo').format('HH:mm');
-                const sunsetTime = moment.utc(astronomyData[0].sunset).tz('America/Sao_Paulo').format('HH:mm');
+            if (sunData.sunrise && sunData.sunset) {
+                const sunriseTime = moment.utc(sunData.sunrise).tz('America/Sao_Paulo').format('HH:mm');
+                const sunsetTime = moment.utc(sunData.sunset).tz('America/Sao_Paulo').format('HH:mm');
 
                 message += `*Sun:*\n`;
                 message += `🌅 Sunrise: ${sunriseTime}\n`;
@@ -51,36 +51,32 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
             let moonriseInSpecialTimeRange = false;
             let moonriseTime = '';
 
-            // Moonrise, moonset, and moon phase
-            if (astronomyData[0].moonrise && astronomyData[0].moonPhase) {
-                moonriseTime = moment.utc(astronomyData[0].moonrise).tz('America/Sao_Paulo').format('HH:mm');
+            // Moonrise and moonset
+            if (moonRiseData.moonrise) {
+                moonriseTime = moment.utc(moonRiseData.moonrise).tz('America/Sao_Paulo').format('HH:mm');
                 const moonriseHour = parseInt(moonriseTime.split(':')[0]);
 
-                // Add moonset if available
                 let moonsetInfo = "";
-                if (astronomyData[0].moonset) {
-                    const moonsetTime = moment.utc(astronomyData[0].moonset).tz('America/Sao_Paulo').format('HH:mm');
+                if (moonRiseData.moonset) {
+                    const moonsetTime = moment.utc(moonRiseData.moonset).tz('America/Sao_Paulo').format('HH:mm');
                     moonsetInfo = `🌃 Moonset: ${moonsetTime}\n`;
                 }
 
-                // Get moon phase using the value instead of text
-                const moonPhaseValue = astronomyData[0].moonPhase.current.value;
-                const moonPhaseInfo = getMoonPhaseFromValue(moonPhaseValue);
-                
+                const phaseName = moonPhaseData.phase || 'Unknown';
+                const phaseEmoji = moonPhaseData.phaseEmoji || '🌙';
+
                 // Check if it's a full moon
-                isFullMoon = moonPhaseInfo.name === 'Full Moon';
-                // Check if moonrise is between 17:00-18:00
+                isFullMoon = phaseName === 'Full Moon';
+                // Check if moonrise is between 17:00-19:00
                 moonriseInSpecialTimeRange = (moonriseHour >= 17 && moonriseHour < 19);
 
                 message += `*Moon:*\n`;
                 message += `🌜 Moonrise: ${moonriseTime}\n`;
                 message += moonsetInfo;
-                message += `🌙 Moon Phase: ${moonPhaseInfo.name} ${moonPhaseInfo.emoji}\n`;
+                message += `🌙 Moon Phase: ${phaseName} ${phaseEmoji}\n`;
 
-                // Add illumination if available
-                if (astronomyData[0].moonPhase.current.illumination) {
-                    const illumination = (astronomyData[0].moonPhase.current.illumination * 100).toFixed(0);
-                    message += `✨ Illumination: ${illumination}%\n`;
+                if (moonPhaseData.illumination != null) {
+                    message += `✨ Illumination: ${moonPhaseData.illumination.toFixed(0)}%\n`;
                 }
             }
 
@@ -130,38 +126,6 @@ async function getAstronomyData(maxRetries = 3, delayMs = 20000, longRetryDelayM
         message: "Could not retrieve astronomy data. Please try again later.",
         isSpecialFullMoon: false
     };
-}
-
-/**
- * Determine moon phase based on numerical value with simplified names
- * @param {Number} value - Moon phase value between 0.0 and 1.0
- * @returns {Object} Moon phase information with name and emoji
- */
-function getMoonPhaseFromValue(value) {
-    // Normalize the value to be between 0 and 1
-    const normalizedValue = ((value % 1) + 1) % 1;
-    
-    // Define phase ranges and corresponding information with simpler names
-    if (normalizedValue >= 0.97 || normalizedValue < 0.03) {
-        return { name: 'New Moon', emoji: '🌑' };
-    } else if (normalizedValue >= 0.03 && normalizedValue < 0.22) {
-        return { name: 'Crescent Moon', emoji: '🌒' };
-    } else if (normalizedValue >= 0.22 && normalizedValue < 0.28) {
-        return { name: 'First Quarter', emoji: '🌓' };
-    } else if (normalizedValue >= 0.28 && normalizedValue < 0.47) {
-        return { name: 'Growing Moon', emoji: '🌔' };
-    } else if (normalizedValue >= 0.47 && normalizedValue < 0.53) {
-        return { name: 'Full Moon', emoji: '🌕' };
-    } else if (normalizedValue >= 0.53 && normalizedValue < 0.72) {
-        return { name: 'Shrinking Moon', emoji: '🌖' };
-    } else if (normalizedValue >= 0.72 && normalizedValue < 0.78) {
-        return { name: 'Last Quarter', emoji: '🌗' };
-    } else if (normalizedValue >= 0.78 && normalizedValue < 0.97) {
-        return { name: 'Crescent Moon', emoji: '🌘' };
-    } else {
-        // Fallback in case of unexpected values
-        return { name: `Moon Phase (${normalizedValue.toFixed(2)})`, emoji: '🌙' };
-    }
 }
 
 /**
