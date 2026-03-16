@@ -1,6 +1,6 @@
 # Pipa DN Bot 🤖💬⚡
 # 🌊🏡🚗🚨🚕🚌💻📶🛂💪🏖️😋📜📂👋
-<img width="495" alt="image" src="https://imgur.com/79043ce9-3340-44b7-b0c0-49fc1d6f9a45" />
+<img width="495" alt="image" src="https://i.imgur.com/khO0FIq.png" />
 Pipa DN Bot (`pipa-dn-bot.js`) is a WhatsApp bot built using the Baileys library. It provides automatic responses to keyword-based messages and sends daily updates with relevant information for the environment of Praia de Pipa to a designated WhatsApp group.
 
 ## WhatsApp Account Requirement
