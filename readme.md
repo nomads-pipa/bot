@@ -13,6 +13,8 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
 - **Daily Astronomical Data Updates**: Fetches and sends sun/moon rising and seting times
 - **Natal/Pipa Ride Share**: Scans for Natal/Pipa transfer options by the members and organize it in a local agenda
+- **Taxi & Mototaxi On-Demand**: Members can request a taxi or mototaxi directly via WhatsApp DM. The bot broadcasts the request to registered drivers, who can accept via DM. Fully independent module.
+- **Driver Self-Registration**: Drivers (taxi or mototaxi) register themselves through a WhatsApp DM conversation with the bot. They provide name, phone, CPF, and vehicle type, and are stored in the database to receive ride broadcasts.
 - **Throttling**: It throtlles messages in a timespam to prevent spammimg
 - **Automatic Reconnection**: If the bot disconnects, it attempts to reconnect automatically.
 
@@ -30,20 +32,53 @@ The bot is running on a Google Cloud VM with the following specifications:
 - **Node.js Version**: v18.19.1
 - **Process Manager**: PM2 v5.4.3
 - **Project Directory**: `/home/joao_mezari/dn-pipa-whatsapp-bot`
+- **Database**: PostgreSQL (managed via Prisma ORM)
 - **Dependencies**:
   - `@whiskeysockets/baileys@6.7.13`
   - `moment-timezone@0.5.47`
   - `qrcode-terminal@0.12.0`
   - `whatsapp-web.js@1.26.0`
+  - `@prisma/client` + `prisma`
 
 ## Installation
 
 ### Prerequisites
 
 Ensure you have the following installed:
-- [Node.js](https://nodejs.org/) 
+- [Node.js](https://nodejs.org/)
 - [npm](https://www.npmjs.com/) (comes with Node.js)
-- [pm2] (https://pm2.keymetrics.io/) 
+- [pm2](https://pm2.keymetrics.io/)
+- [PostgreSQL](https://www.postgresql.org/) 14+
+
+### PostgreSQL Setup
+
+1. Install PostgreSQL (Ubuntu/Debian):
+   ```sh
+   sudo apt update
+   sudo apt install postgresql postgresql-contrib
+   sudo systemctl enable --now postgresql
+   ```
+
+2. Create the database and user:
+   ```sh
+   sudo -u postgres psql
+   ```
+   ```sql
+   CREATE DATABASE "DNBot-DB";
+   CREATE USER botuser WITH ENCRYPTED PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE "DNBot-DB" TO botuser;
+   \q
+   ```
+
+3. Set the `DATABASE_URL` in your `.env` file:
+   ```
+   DATABASE_URL="postgresql://botuser:your_password@localhost:5432/DNBot-DB?schema=public"
+   ```
+
+4. Run Prisma migrations to create all tables:
+   ```sh
+   npx prisma migrate deploy
+   ```
 
 ### Setup
 
@@ -58,7 +93,12 @@ Ensure you have the following installed:
    npm install
    ```
 
-3. Create a .env file in the project root directory (check .env.example)
+3. Create a `.env` file in the project root directory (check `.env.example`):
+   - `DATABASE_URL` — PostgreSQL connection string (see above)
+   - `OPENROUTER_API_KEY` — for Natal transfer LLM parsing
+   - `STORMGLASS_API_KEY` — for tide data
+   - `APIVERVE_API_KEY` — for astronomical data
+   - `GROUP_NAMES` — comma-separated WhatsApp group names to monitor
 
 4. Start the bot:
    ```sh
@@ -83,6 +123,43 @@ The bot responds to predefined keywords stored in `keywords.json`. Ensure this f
     }
 ]
 ```
+
+## Taxi & Mototaxi Module
+
+This is an independent module that handles on-demand ride requests directly via WhatsApp DM.
+
+### Requesting a Ride (Passengers)
+
+Members send a DM to the bot and go through a short conversation:
+1. Select language (EN/PT)
+2. Select vehicle type: **Taxi** or **Mototaxi**
+3. Provide name, phone, pickup location, destination, and wait time
+4. The bot broadcasts the request to all registered drivers of that type
+
+### Driver Self-Registration
+
+Drivers register by sending any of these messages to the bot DM:
+- `sou motorista` / `cadastrar motorista` / `quero ser motorista`
+
+The bot then collects:
+1. Full name
+2. Phone number with country code (e.g. `+55 84 9 1234-5678`)
+3. CPF (validated with check digits)
+4. Vehicle type: **Mototaxi** or **Taxi**
+
+After confirmation, the driver is saved in the database and starts receiving ride broadcasts automatically. See `DRIVER_REGISTRATION.md` for the full flow.
+
+### Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Passengers who requested rides |
+| `drivers` | Registered taxi/mototaxi drivers |
+| `taxi_rides` | Ride requests with status tracking |
+| `ride_assignments` | Driver-to-ride assignments |
+| `conversation_states` | Active DM conversation state |
+| `natal_rides` | Natal airport ride-sharing entries |
+| `ratings` | Post-ride ratings (1–5) for drivers and passengers |
 
 ## How It Works
 
