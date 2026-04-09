@@ -19,7 +19,9 @@ async function getDriverNumbers(vehicleType, testMode = false) {
 
     const whereClause = vehicleType === 'mototaxi'
       ? { isMotoTaxiDriver: true, isActive: true }
-      : { isTaxiDriver: true, isActive: true };
+      : vehicleType === 'natal_transfer'
+        ? { isNatalTransferDriver: true, isActive: true }
+        : { isTaxiDriver: true, isActive: true };
 
     const drivers = await prisma.driver.findMany({
       where: whereClause,
@@ -159,14 +161,34 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
     return;
   }
 
-  const vehicleIcon = ride.vehicleType === 'mototaxi' ? '🏍️' : '🚗';
-  const vehicleLabel = ride.vehicleType === 'mototaxi' ? 'MOTOTAXI' : 'TÁXI';
   const testModeTag = testMode ? ' 🧪 [TESTE]' : '';
 
   // Format passenger reputation
   const passengerRep = formatReputation(ride.user.reputation, 'pt');
 
-  const driverMessage = `${vehicleIcon} *NOVA CORRIDA AUTOMÁTICA - ${vehicleLabel}${testModeTag}*
+  let driverMessage;
+  if (ride.vehicleType === 'natal_transfer') {
+    const directionLabel = ride.transferDirection === 'natal_to_pipa' ? 'Natal → Pipa' : 'Pipa → Natal';
+    driverMessage = `🚗 *NOVA SOLICITAÇÃO - TRANSFER NATAL/PIPA${testModeTag}*
+*[RE-ENVIADA - Motorista anterior cancelou]*
+
+*Passageiro:* ${conversation.name || ride.user.name}
+*Telefone:* ${conversation.phone || ride.user.phone}
+*Reputação:* ${passengerRep}
+*Direção:* ${directionLabel}
+*Data/Hora Pickup:* ${ride.pickupDatetime}
+*Local de Pickup (texto):* ${ride.locationText}
+*Destino:* ${ride.destination}
+
+*Corrida #${ride.id}*
+
+*Para aceitar, escreva: aceitar ${ride.id}*
+
+🤖 Esta é uma mensagem automática do sistema.`;
+  } else {
+    const vehicleIcon = ride.vehicleType === 'mototaxi' ? '🏍️' : '🚗';
+    const vehicleLabel = ride.vehicleType === 'mototaxi' ? 'MOTOTAXI' : 'TÁXI';
+    driverMessage = `${vehicleIcon} *NOVA CORRIDA AUTOMÁTICA - ${vehicleLabel}${testModeTag}*
 *[RE-ENVIADA - Motorista anterior cancelou]*
 
 *Passageiro:* ${conversation.name || ride.user.name}
@@ -182,6 +204,7 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
 *Para aceitar, escreva: aceitar ${ride.id}*
 
 🤖 Esta é uma mensagem automática do sistema.`;
+  }
 
   for (const driverJid of driverNumbers) {
     try {
@@ -204,20 +227,34 @@ async function rebroadcastRideAfterDriverCancel(sock, ride, conversation) {
 
   logger.info(`🚖 Re-broadcasted ${ride.vehicleType} ride ${ride.id} to ${driverNumbers.length} drivers`);
 
-  const waitTimeMinutes = parseInt(ride.waitTime, 10);
-  if (!isNaN(waitTimeMinutes) && waitTimeMinutes > 0) {
-    const timeoutMs = waitTimeMinutes * 60 * 1000;
-    const { handleRideTimeout } = require('./ride-timeout');
-    const timeoutId = setTimeout(() => {
-      handleRideTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), waitTimeMinutes, ride.language);
-    }, timeoutMs);
+  if (ride.vehicleType === 'natal_transfer') {
+    if (ride.pickupAt) {
+      const timeUntilPickup = new Date(ride.pickupAt) - new Date();
+      if (timeUntilPickup > 0) {
+        const { handleNatalTransferTimeout } = require('./ride-timeout');
+        const timeoutId = setTimeout(() => {
+          handleNatalTransferTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), ride.language);
+        }, timeUntilPickup);
+        activeRideTimeouts.set(ride.id, timeoutId);
+        logger.info(`⏰ Set pickup expiry timeout for re-broadcasted natal_transfer ride ${ride.id}`);
+      }
+    }
+  } else {
+    const waitTimeMinutes = parseInt(ride.waitTime, 10);
+    if (!isNaN(waitTimeMinutes) && waitTimeMinutes > 0) {
+      const timeoutMs = waitTimeMinutes * 60 * 1000;
+      const { handleRideTimeout } = require('./ride-timeout');
+      const timeoutId = setTimeout(() => {
+        handleRideTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), waitTimeMinutes, ride.language);
+      }, timeoutMs);
 
-    activeRideTimeouts.set(ride.id, timeoutId);
-    logger.info(`⏰ Set new timeout for re-broadcasted ride ${ride.id}`);
+      activeRideTimeouts.set(ride.id, timeoutId);
+      logger.info(`⏰ Set new timeout for re-broadcasted ride ${ride.id}`);
+    }
+
+    // Schedule keepalive messages
+    scheduleKeepaliveMessages(sock, ride.id, getPrimaryIdentifier(ride.user), ride.language);
   }
-
-  // Schedule keepalive messages
-  scheduleKeepaliveMessages(sock, ride.id, getPrimaryIdentifier(ride.user), ride.language);
 }
 
 async function broadcastRideToDrivers(sock, sender, conversation) {
@@ -256,14 +293,33 @@ async function broadcastRideToDrivers(sock, sender, conversation) {
     return;
   }
 
-  const vehicleIcon = vehicleType === 'mototaxi' ? '🏍️' : '🚗';
-  const vehicleLabel = vehicleType === 'mototaxi' ? 'MOTOTAXI' : 'TÁXI';
   const testModeTag = testMode ? ' 🧪 [TESTE]' : '';
 
   // Format passenger reputation
   const passengerRep = formatReputation(ride.user.reputation, 'pt');
 
-  const driverMessage = `${vehicleIcon} *NOVA CORRIDA AUTOMÁTICA - ${vehicleLabel}${testModeTag}*
+  let driverMessage;
+  if (vehicleType === 'natal_transfer') {
+    const directionLabel = ride.transferDirection === 'natal_to_pipa' ? 'Natal → Pipa' : 'Pipa → Natal';
+    driverMessage = `🚗 *NOVA SOLICITAÇÃO - TRANSFER NATAL/PIPA${testModeTag}*
+
+*Passageiro:* ${userInfo.name}
+*Telefone:* ${userInfo.phone}
+*Reputação:* ${passengerRep}
+*Direção:* ${directionLabel}
+*Data/Hora Pickup:* ${userInfo.pickupDatetime}
+*Local de Pickup (texto):* ${userInfo.locationText}
+*Destino:* ${userInfo.destination}
+
+*Corrida #${ride.id}*
+
+*Para aceitar, escreva: aceitar ${ride.id}*
+
+🤖 Esta é uma mensagem automática do sistema.`;
+  } else {
+    const vehicleIcon = vehicleType === 'mototaxi' ? '🏍️' : '🚗';
+    const vehicleLabel = vehicleType === 'mototaxi' ? 'MOTOTAXI' : 'TÁXI';
+    driverMessage = `${vehicleIcon} *NOVA CORRIDA AUTOMÁTICA - ${vehicleLabel}${testModeTag}*
 
 *Passageiro:* ${userInfo.name}
 *Telefone:* ${userInfo.phone}
@@ -278,6 +334,7 @@ async function broadcastRideToDrivers(sock, sender, conversation) {
 *Para aceitar, escreva: aceitar ${ride.id}*
 
 🤖 Esta é uma mensagem automática do sistema.`;
+  }
 
   for (const driverJid of driverNumbers) {
     try {
@@ -307,20 +364,36 @@ async function broadcastRideToDrivers(sock, sender, conversation) {
 
   logger.info(`🚖 Broadcasted ${vehicleType} ride ${ride.id} to ${driverNumbers.length} drivers`);
 
-  const waitTimeMinutes = parseInt(userInfo.waitTime, 10);
-  if (!isNaN(waitTimeMinutes) && waitTimeMinutes > 0) {
-    const timeoutMs = waitTimeMinutes * 60 * 1000;
-    const { handleRideTimeout } = require('./ride-timeout');
-    const timeoutId = setTimeout(() => {
-      handleRideTimeout(sock, ride.id, sender, waitTimeMinutes, language);
-    }, timeoutMs);
+  if (vehicleType === 'natal_transfer') {
+    // Expire at pickup datetime instead of a wait time
+    if (ride.pickupAt) {
+      const timeUntilPickup = new Date(ride.pickupAt) - new Date();
+      if (timeUntilPickup > 0) {
+        const { handleNatalTransferTimeout } = require('./ride-timeout');
+        const timeoutId = setTimeout(() => {
+          handleNatalTransferTimeout(sock, ride.id, sender, language);
+        }, timeUntilPickup);
+        activeRideTimeouts.set(ride.id, timeoutId);
+        logger.info(`⏰ Set pickup expiry timeout for natal_transfer ride ${ride.id} (~${Math.round(timeUntilPickup / 60000)} min)`);
+      }
+    }
+    // No keepalive for natal_transfer (pickup can be days away)
+  } else {
+    const waitTimeMinutes = parseInt(userInfo.waitTime, 10);
+    if (!isNaN(waitTimeMinutes) && waitTimeMinutes > 0) {
+      const timeoutMs = waitTimeMinutes * 60 * 1000;
+      const { handleRideTimeout } = require('./ride-timeout');
+      const timeoutId = setTimeout(() => {
+        handleRideTimeout(sock, ride.id, sender, waitTimeMinutes, language);
+      }, timeoutMs);
 
-    activeRideTimeouts.set(ride.id, timeoutId);
-    logger.info(`⏰ Set ${waitTimeMinutes} minute timeout for ride ${ride.id}`);
+      activeRideTimeouts.set(ride.id, timeoutId);
+      logger.info(`⏰ Set ${waitTimeMinutes} minute timeout for ride ${ride.id}`);
+    }
+
+    // Schedule keepalive messages
+    scheduleKeepaliveMessages(sock, ride.id, sender, language);
   }
-
-  // Schedule keepalive messages
-  scheduleKeepaliveMessages(sock, ride.id, sender, language);
 }
 
 module.exports = {

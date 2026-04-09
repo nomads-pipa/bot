@@ -249,7 +249,7 @@ async function handleNatalCommand(sock, groupId) {
     }
 
     message += "\n\nTo offer a ride, simply share your travel plans in the group.";
-    message += "\nTo search for rides, just ask something like 'Anyone going to Natal tomorrow?'";
+    message += "\nTo search for rides, use the !natal command";
 
     // Send the compiled message
     await sock.sendMessage(groupId, {

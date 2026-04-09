@@ -23,6 +23,8 @@ async function saveConversationState(sender, conversation) {
         destination: conversation.userInfo?.destination,
         identifier: conversation.userInfo?.identifier,
         waitTime: conversation.userInfo?.waitTime,
+        pickupDatetime: conversation.userInfo?.pickupDatetime,
+        transferDirection: conversation.userInfo?.transferDirection,
         rideId: conversation.rideId,
         lastActivityAt: now
       },
@@ -40,6 +42,8 @@ async function saveConversationState(sender, conversation) {
         destination: conversation.userInfo?.destination,
         identifier: conversation.userInfo?.identifier,
         waitTime: conversation.userInfo?.waitTime,
+        pickupDatetime: conversation.userInfo?.pickupDatetime,
+        transferDirection: conversation.userInfo?.transferDirection,
         rideId: conversation.rideId,
         conversationStartedAt: now,
         lastActivityAt: now
@@ -124,7 +128,9 @@ async function restoreConversationStates(sock) {
         } : undefined,
         destination: state.destination,
         identifier: state.identifier,
-        waitTime: state.waitTime
+        waitTime: state.waitTime,
+        pickupDatetime: state.pickupDatetime,
+        transferDirection: state.transferDirection
       },
       rideId: state.rideId
     };

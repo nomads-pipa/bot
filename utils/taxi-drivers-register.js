@@ -46,15 +46,15 @@ const MESSAGES = {
   cpfInvalid: '❌ CPF inválido. Por favor insira um CPF válido no formato 123.456.789-10 ou apenas os 11 números.',
   email: '📧 Qual é o seu e-mail?\n\n_Exemplo: motorista@email.com_',
   emailInvalid: '❌ E-mail inválido. Por favor insira um endereço de e-mail válido (ex: motorista@email.com)',
-  vehicleType: '🚗 Qual tipo de motorista você é?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Táxi 🚗',
-  vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi ou 2 para Táxi',
+  vehicleType: '🚗 Qual tipo de motorista você é?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Táxi 🚗\n3️⃣ - Transfer Natal/Pipa 🚕',
+  vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi, 2 para Táxi, ou 3 para Transfer Natal/Pipa',
   confirmation: (driverInfo) => `📋 *Confirme suas informações:*
 
 *Nome:* ${driverInfo.name}
 *Telefone:* ${driverInfo.phone}
 *CPF:* ${driverInfo.cpf}
 *E-mail:* ${driverInfo.email}
-*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
+*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : driverInfo.isNatalTransferDriver ? 'Transfer Natal/Pipa 🚕' : 'Táxi 🚗'}
 
 As informações estão corretas?
 
@@ -69,7 +69,7 @@ Responda:
 *Nome:* ${driverInfo.name}
 *Telefone:* ${driverInfo.phone}
 *E-mail:* ${driverInfo.email || 'Não informado'}
-*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
+*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : driverInfo.isNatalTransferDriver ? 'Transfer Natal/Pipa 🚕' : 'Táxi 🚗'}
 
 O que você gostaria de fazer?
 
@@ -84,7 +84,7 @@ Encontramos seu cadastro:
 
 *Telefone:* ${driverInfo.phone}
 *E-mail:* ${driverInfo.email || 'Não informado'}
-*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
+*Tipo:* ${driverInfo.isMotoTaxiDriver ? 'Mototaxi 🏍️' : driverInfo.isNatalTransferDriver ? 'Transfer Natal/Pipa 🚕' : 'Táxi 🚗'}
 
 O que você gostaria de fazer?
 
@@ -316,7 +316,8 @@ async function startDriverRegistration(sock, driverJid) {
       cpf: null,
       email: null,
       isTaxiDriver: false,
-      isMotoTaxiDriver: false
+      isMotoTaxiDriver: false,
+      isNatalTransferDriver: false
     });
 
     // Start timeout timer
@@ -474,7 +475,7 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
       case STATES.AWAITING_VEHICLE_TYPE:
         const choice = trimmedMessage;
 
-        if (choice !== '1' && choice !== '2') {
+        if (choice !== '1' && choice !== '2' && choice !== '3') {
           await sock.sendMessage(driverJid, { text: MESSAGES.vehicleTypeInvalid });
           return true;
         }
@@ -482,9 +483,15 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
         if (choice === '1') {
           regState.isMotoTaxiDriver = true;
           regState.isTaxiDriver = false;
-        } else {
+          regState.isNatalTransferDriver = false;
+        } else if (choice === '2') {
           regState.isMotoTaxiDriver = false;
           regState.isTaxiDriver = true;
+          regState.isNatalTransferDriver = false;
+        } else {
+          regState.isMotoTaxiDriver = false;
+          regState.isTaxiDriver = false;
+          regState.isNatalTransferDriver = true;
         }
 
         // Show confirmation
@@ -510,6 +517,7 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
               email: regState.email,
               isTaxiDriver: regState.isTaxiDriver,
               isMotoTaxiDriver: regState.isMotoTaxiDriver,
+              isNatalTransferDriver: regState.isNatalTransferDriver,
               isActive: true
             }
           });
@@ -560,7 +568,7 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
           // Update vehicle type
           regState.state = STATES.UPDATE_VEHICLE_TYPE;
           regState.updateField = 'Tipo de Veículo';
-          regState.oldValue = regState.existingDriver.isMotoTaxiDriver ? 'Mototaxi 🏍️' : 'Táxi 🚗';
+          regState.oldValue = regState.existingDriver.isMotoTaxiDriver ? 'Mototaxi 🏍️' : regState.existingDriver.isNatalTransferDriver ? 'Transfer Natal/Pipa 🚕' : 'Táxi 🚗';
           await sock.sendMessage(driverJid, { text: MESSAGES.vehicleType });
         } else if (menuChoice === '5') {
           // Nothing to update
@@ -618,12 +626,12 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
       case STATES.UPDATE_VEHICLE_TYPE:
         const vehicleChoice = trimmedMessage;
 
-        if (vehicleChoice !== '1' && vehicleChoice !== '2') {
+        if (vehicleChoice !== '1' && vehicleChoice !== '2' && vehicleChoice !== '3') {
           await sock.sendMessage(driverJid, { text: MESSAGES.vehicleTypeInvalid });
           return true;
         }
 
-        const newVehicleType = vehicleChoice === '1' ? 'Mototaxi 🏍️' : 'Táxi 🚗';
+        const newVehicleType = vehicleChoice === '1' ? 'Mototaxi 🏍️' : vehicleChoice === '2' ? 'Táxi 🚗' : 'Transfer Natal/Pipa 🚕';
         regState.newValue = vehicleChoice;
         regState.state = STATES.UPDATE_CONFIRMATION;
         await sock.sendMessage(driverJid, {
@@ -648,9 +656,15 @@ async function processDriverRegistrationMessage(sock, message, driverJid) {
             if (regState.newValue === '1') {
               updateData.isMotoTaxiDriver = true;
               updateData.isTaxiDriver = false;
-            } else {
+              updateData.isNatalTransferDriver = false;
+            } else if (regState.newValue === '2') {
               updateData.isMotoTaxiDriver = false;
               updateData.isTaxiDriver = true;
+              updateData.isNatalTransferDriver = false;
+            } else {
+              updateData.isMotoTaxiDriver = false;
+              updateData.isTaxiDriver = false;
+              updateData.isNatalTransferDriver = true;
             }
           }
 

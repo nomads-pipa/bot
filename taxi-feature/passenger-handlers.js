@@ -4,6 +4,29 @@ const { activeConversations, STATES, TRANSLATIONS } = require('./constants');
 const { saveConversationState, deleteConversationState } = require('./conversation-state');
 const { resetConversationTimeout, clearConversationTimeouts, clearAllUserTimeouts } = require('./conversation-timeout');
 const { createInitialRide, updateRide, broadcastRideToDrivers, rebroadcastRideAfterDriverCancel } = require('./ride-management');
+const moment = require('moment-timezone');
+
+/**
+ * Try to parse a free-text pickup datetime into a Date object.
+ * Handles common Brazilian formats like "27/03 às 14h", "27/03/2026 14:00", "27/03 14:30".
+ * Returns null if parsing fails.
+ */
+function tryParsePickupDate(text) {
+  if (!text) return null;
+  const tz = 'America/Sao_Paulo';
+  const cleaned = text.trim();
+  const match = cleaned.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?\s*(?:às?|as)?\s*(\d{1,2})(?:[h:]\s*(\d{2})?)?/i);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    const year = match[3] ? parseInt(match[3], 10) : new Date().getFullYear();
+    const hour = parseInt(match[4], 10);
+    const minute = match[5] ? parseInt(match[5], 10) : 0;
+    const m = moment.tz({ year, month, date: day, hour, minute }, tz);
+    if (m.isValid()) return m.toDate();
+  }
+  return null;
+}
 
 const logger = createFileLogger();
 
@@ -118,6 +141,8 @@ async function processTaxiConversation(sock, message, sender) {
       const vehicleChoice = messageContent?.trim();
       if (vehicleChoice === '1') {
         conversation.vehicleType = 'mototaxi';
+      } else if (vehicleChoice === '2') {
+        conversation.vehicleType = 'natal_transfer';
       } else {
         await sock.sendMessage(sender, {
           text: t.vehicleTypeInvalid
@@ -131,25 +156,22 @@ async function processTaxiConversation(sock, message, sender) {
 
       // Check if we should skip user info questions
       if (conversation.skipUserInfo) {
-        // Skip directly to location questions
-        conversation.state = STATES.AWAITING_LOCATION_TEXT;
+        // Skip directly to first relevant question
+        const nextState = conversation.vehicleType === 'natal_transfer'
+          ? STATES.AWAITING_TRANSFER_DIRECTION
+          : STATES.AWAITING_LOCATION_TEXT;
+        conversation.state = nextState;
         await saveConversationState(sender, conversation);
+        await sock.sendMessage(sender, { text: t.greeting });
         await sock.sendMessage(sender, {
-          text: t.greeting
-        });
-        await sock.sendMessage(sender, {
-          text: t.locationText
+          text: nextState === STATES.AWAITING_TRANSFER_DIRECTION ? t.transferDirection : t.locationText
         });
       } else {
         // Ask for name as usual
         conversation.state = STATES.AWAITING_NAME;
         await saveConversationState(sender, conversation);
-        await sock.sendMessage(sender, {
-          text: t.greeting
-        });
-        await sock.sendMessage(sender, {
-          text: t.name
-        });
+        await sock.sendMessage(sender, { text: t.greeting });
+        await sock.sendMessage(sender, { text: t.name });
       }
       break;
 
@@ -189,16 +211,56 @@ async function processTaxiConversation(sock, message, sender) {
           }
         }
 
-        conversation.state = STATES.AWAITING_LOCATION_TEXT;
-        await saveConversationState(sender, conversation);
-        await sock.sendMessage(sender, {
-          text: t.locationText
-        });
+        if (conversation.vehicleType === 'natal_transfer') {
+          conversation.state = STATES.AWAITING_TRANSFER_DIRECTION;
+          await saveConversationState(sender, conversation);
+          await sock.sendMessage(sender, { text: t.transferDirection });
+        } else {
+          conversation.state = STATES.AWAITING_LOCATION_TEXT;
+          await saveConversationState(sender, conversation);
+          await sock.sendMessage(sender, { text: t.locationText });
+        }
       } else {
         await sock.sendMessage(sender, {
           text: t.phoneInvalid
         });
       }
+      break;
+
+    case STATES.AWAITING_TRANSFER_DIRECTION:
+      const dirChoice = messageContent?.trim();
+      if (dirChoice === '1') {
+        conversation.userInfo.transferDirection = 'natal_to_pipa';
+      } else if (dirChoice === '2') {
+        conversation.userInfo.transferDirection = 'pipa_to_natal';
+      } else {
+        await sock.sendMessage(sender, { text: t.transferDirectionInvalid });
+        return true;
+      }
+
+      if (conversation.rideId) {
+        await updateRide(conversation.rideId, { transferDirection: conversation.userInfo.transferDirection });
+      }
+
+      conversation.state = STATES.AWAITING_PICKUP_DATETIME;
+      await saveConversationState(sender, conversation);
+      await sock.sendMessage(sender, { text: t.pickupDatetime });
+      break;
+
+    case STATES.AWAITING_PICKUP_DATETIME:
+      conversation.userInfo.pickupDatetime = messageContent;
+
+      if (conversation.rideId) {
+        const pickupAt = tryParsePickupDate(messageContent);
+        await updateRide(conversation.rideId, {
+          pickupDatetime: messageContent,
+          ...(pickupAt ? { pickupAt } : {})
+        });
+      }
+
+      conversation.state = STATES.AWAITING_LOCATION_TEXT;
+      await saveConversationState(sender, conversation);
+      await sock.sendMessage(sender, { text: t.locationText });
       break;
 
     case STATES.AWAITING_LOCATION_TEXT:
@@ -209,11 +271,16 @@ async function processTaxiConversation(sock, message, sender) {
         await updateRide(conversation.rideId, { locationText: messageContent });
       }
 
-      conversation.state = STATES.AWAITING_LOCATION_PIN;
-      await saveConversationState(sender, conversation);
-      await sock.sendMessage(sender, {
-        text: TRANSLATIONS[conversation.language].locationPin
-      });
+      // Natal→Pipa: skip GPS pin (user is in Natal, no GPS needed)
+      if (conversation.vehicleType === 'natal_transfer' && conversation.userInfo.transferDirection === 'natal_to_pipa') {
+        conversation.state = STATES.AWAITING_DESTINATION;
+        await saveConversationState(sender, conversation);
+        await sock.sendMessage(sender, { text: TRANSLATIONS[conversation.language].destination });
+      } else {
+        conversation.state = STATES.AWAITING_LOCATION_PIN;
+        await saveConversationState(sender, conversation);
+        await sock.sendMessage(sender, { text: TRANSLATIONS[conversation.language].locationPin });
+      }
       break;
 
     case STATES.AWAITING_LOCATION_PIN:
@@ -251,11 +318,18 @@ async function processTaxiConversation(sock, message, sender) {
         await updateRide(conversation.rideId, { destination: messageContent });
       }
 
-      conversation.state = STATES.AWAITING_IDENTIFIER;
-      await saveConversationState(sender, conversation);
-      await sock.sendMessage(sender, {
-        text: TRANSLATIONS[conversation.language].identifier
-      });
+      // Natal transfer skips identifier and wait time
+      if (conversation.vehicleType === 'natal_transfer') {
+        conversation.state = STATES.AWAITING_CONFIRMATION;
+        await saveConversationState(sender, conversation);
+        await sock.sendMessage(sender, {
+          text: TRANSLATIONS[conversation.language].confirmation(conversation.userInfo, conversation.vehicleType)
+        });
+      } else {
+        conversation.state = STATES.AWAITING_IDENTIFIER;
+        await saveConversationState(sender, conversation);
+        await sock.sendMessage(sender, { text: TRANSLATIONS[conversation.language].identifier });
+      }
       break;
 
     case STATES.AWAITING_IDENTIFIER:

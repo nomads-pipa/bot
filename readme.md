@@ -12,7 +12,8 @@ The bot requires a dedicated WhatsApp account to operate, as it emulates WhatsAp
 - **Automatic Keyword Responses**: The bot monitors messages in a specified group and responds based on predefined keywords.
 - **Daily Tide Data Updates**: Fetches and sends tide extremes data for Praia de Pipa at a scheduled time every day.
 - **Daily Astronomical Data Updates**: Fetches and sends sun/moon rising and seting times
-- **Natal/Pipa Ride Share**: Scans for Natal/Pipa transfer options by the members and organize it in a local agenda
+- **City Ride Share Scan**: Scans for ride-sharing messages mentioning **Natal**, **Recife**, or **João Pessoa**, parses them with LLM, and organizes them in a local agenda. Members can view upcoming rides with `!natal`, `!recife`, or `!jp`
+- **Natal/Pipa Transfer On-Demand**: Members can request a scheduled Natal↔Pipa transfer directly via WhatsApp DM. Supports both directions (Natal→Pipa and Pipa→Natal), collects pickup date/time and address, and broadcasts the request to registered transfer drivers only. (Recife and João Pessoa on-demand transfers are planned)
 - **Taxi & Mototaxi On-Demand**: Members can request a taxi or mototaxi directly via WhatsApp DM. The bot broadcasts the request to registered drivers, who can accept via DM. Fully independent module.
 - **Driver Self-Registration**: Drivers (taxi or mototaxi) register themselves through a WhatsApp DM conversation with the bot. They provide name, phone, CPF, and vehicle type, and are stored in the database to receive ride broadcasts.
 - **Throttling**: It throtlles messages in a timespam to prevent spammimg
@@ -148,18 +149,6 @@ The bot then collects:
 4. Vehicle type: **Mototaxi** or **Taxi**
 
 After confirmation, the driver is saved in the database and starts receiving ride broadcasts automatically. See `DRIVER_REGISTRATION.md` for the full flow.
-
-### Database Tables
-
-| Table | Purpose |
-|-------|---------|
-| `users` | Passengers who requested rides |
-| `drivers` | Registered taxi/mototaxi drivers |
-| `taxi_rides` | Ride requests with status tracking |
-| `ride_assignments` | Driver-to-ride assignments |
-| `conversation_states` | Active DM conversation state |
-| `natal_rides` | Natal airport ride-sharing entries |
-| `ratings` | Post-ride ratings (1–5) for drivers and passengers |
 
 ## How It Works
 

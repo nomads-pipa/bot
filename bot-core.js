@@ -11,7 +11,7 @@ const {
 } = require('./utils/keyword-manager');
 const { setupSchedulers } = require('./schedulers');
 const { createFileLogger } = require('./utils/file-logger');
-const { initNatalTransfer, processNatalTransferMessage, isNatalTransferMessage } = require('./utils/natal-transfer-db');
+const { initCityTransfer, processCityTransferMessage, isCityTransferMessage } = require('./utils/city-transfer-db');
 const { initTaxiRide, processTaxiMessage } = require('./taxi-feature');
 const { initDriverRegistration, processDriverRegistrationMessage } = require('./utils/taxi-drivers-register');
 
@@ -64,9 +64,9 @@ async function startBot() {
         } else if (connection === 'open') {
             logger.info('✅ Connected successfully');
 
-            // Initialize the Natal transfer module
-            await initNatalTransfer();
-            logger.info('✅ Natal transfer module initialized');
+            // Initialize the city transfer module (Natal, Recife, João Pessoa)
+            await initCityTransfer();
+            logger.info('✅ City transfer module initialized');
 
             // Initialize the Taxi ride module
             await initTaxiRide(sock);
@@ -230,12 +230,12 @@ function setupMessageHandler(sock, groupMap) {
                         const groupName = Object.keys(groupMap).find(name => groupMap[name] === remoteJid);
                         logger.info(`📩 Received message in group "${groupName}": ${messageContent}`);
 
-                        // Check if this is a Natal transfer message
+                        // Check if this is a city transfer message (Natal, Recife, João Pessoa)
                         const pushName = message.pushName || '';
-                        const isNatalTransfer = await processNatalTransferMessage(sock, messageContent, sender, remoteJid, pushName);
+                        const isCityTransfer = await processCityTransferMessage(sock, messageContent, sender, remoteJid, pushName);
 
-                        // If not a Natal transfer message, check for other keyword matches
-                        if (!isNatalTransfer) {
+                        // If not a city transfer message, check for other keyword matches
+                        if (!isCityTransfer) {
                             // Check for keyword matches
                             for (const { keywords, response } of keywordResponseMap) {
                                 let matched = false;

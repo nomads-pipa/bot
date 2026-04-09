@@ -29,7 +29,10 @@ function isJid(identifier) {
 function isTaxiRequest(message) {
   const lowerMsg = message.toLowerCase();
   const isRequest = lowerMsg.includes('mototaxi') || lowerMsg.includes('mototáxi') ||
-                    lowerMsg.includes('taxi') || lowerMsg.includes('táxi');
+                    lowerMsg.includes('taxi') || lowerMsg.includes('táxi') ||
+                    lowerMsg.includes('transfer natal') || lowerMsg.includes('transfer pipa') ||
+                    lowerMsg.includes('natal transfer') || lowerMsg.includes('pipa transfer') ||
+                    lowerMsg.includes('transferência natal') || lowerMsg.includes('transferência pipa');
   const isTestMode = lowerMsg.includes('test');
 
   return {

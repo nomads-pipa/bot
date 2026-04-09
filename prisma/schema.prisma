@@ -26,7 +26,7 @@ model User {
 
   // Relations
   taxiRides         TaxiRide[]        @relation("UserRides")
-  natalRides        NatalRide[]       @relation("UserNatalRides")
+  transferRides     TransferRide[]    @relation("UserTransferRides")
   ratingsGiven      Rating[]          @relation("RatingsGiven")
   ratingsReceived   Rating[]          @relation("RatingsReceived")
 
@@ -44,10 +44,13 @@ model Driver {
   phone             String?
   cpf               String?  @unique  // Brazilian CPF (Tax ID) - upgraded to unique for driver lookup
   email             String?  // Email address
-  isActive          Boolean  @default(true)
-  isTaxiDriver      Boolean  @default(false)
-  isMotoTaxiDriver  Boolean  @default(false)
-  reputation        Float?   // Average rating from passengers (1.0 to 5.0)
+  isActive                Boolean  @default(true)
+  isTaxiDriver            Boolean  @default(false)
+  isMotoTaxiDriver        Boolean  @default(false)
+  isNatalTransferDriver      Boolean  @default(false)
+  isRecifeTransferDriver     Boolean  @default(false)
+  isJoaoPessoaTransferDriver Boolean  @default(false)
+  reputation              Float?   // Average rating from passengers (1.0 to 5.0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -61,6 +64,9 @@ model Driver {
   @@index([cpf])
   @@index([isTaxiDriver])
   @@index([isMotoTaxiDriver])
+  @@index([isNatalTransferDriver])
+  @@index([isRecifeTransferDriver])
+  @@index([isJoaoPessoaTransferDriver])
   @@map("drivers")
 }
 
@@ -82,6 +88,11 @@ model TaxiRide {
   destination       String?
   identifier        String?  // Visual identifier
   waitTime          String?  // Minutes
+
+  // Natal transfer fields
+  pickupDatetime    String?   // Free text pickup date/time (natal_transfer only)
+  transferDirection String?   // 'natal_to_pipa' or 'pipa_to_natal'
+  pickupAt          DateTime? // Parsed pickup datetime for timeout calculation
 
   // Retry tracking
   retryAttempts     Int      @default(0)  // Number of times passenger retried after expiration
@@ -131,23 +142,24 @@ model RideAssignment {
   @@map("ride_assignments")
 }
 
-// NatalRide model - tracks Natal airport ride-sharing offers
-model NatalRide {
+// TransferRide model - tracks city transfer ride-sharing offers (Natal, Recife, João Pessoa)
+model TransferRide {
   id                Int      @id @default(autoincrement())
-  direction         String   // 'toAirport' or 'fromAirport'
+  city              String   // 'natal', 'recife', 'joao_pessoa'
+  direction         String   // 'toCity' or 'fromCity'
   datetime          DateTime // Scheduled travel time
   originalMsg       String   // Original message text
 
   // User reference
   userId            Int
-  user              User     @relation("UserNatalRides", fields: [userId], references: [id])
+  user              User     @relation("UserTransferRides", fields: [userId], references: [id])
 
   // Timestamps
   createdAt         DateTime @default(now())
 
-  @@index([direction, datetime])
+  @@index([city, direction, datetime])
   @@index([userId])
-  @@map("natal_rides")
+  @@map("transfer_rides")
 }
 
 // ConversationState model - tracks active taxi ride conversations
@@ -170,6 +182,8 @@ model ConversationState {
   destination            String?
   identifier             String?
   waitTime               String?
+  pickupDatetime         String?   // natal_transfer: free text pickup date/time
+  transferDirection      String?   // natal_transfer: 'natal_to_pipa' or 'pipa_to_natal'
 
   // Ride ID if created
   rideId                 Int?

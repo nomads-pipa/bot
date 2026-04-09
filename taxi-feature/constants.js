@@ -5,6 +5,8 @@ const STATES = {
   AWAITING_VEHICLE_TYPE: 'awaiting_vehicle_type',
   AWAITING_NAME: 'awaiting_name',
   AWAITING_PHONE: 'awaiting_phone',
+  AWAITING_TRANSFER_DIRECTION: 'awaiting_transfer_direction',
+  AWAITING_PICKUP_DATETIME: 'awaiting_pickup_datetime',
   AWAITING_LOCATION_TEXT: 'awaiting_location_text',
   AWAITING_LOCATION_PIN: 'awaiting_location_pin',
   AWAITING_DESTINATION: 'awaiting_destination',
@@ -48,8 +50,11 @@ const TRANSLATIONS = {
   en: {
     timeoutWarning: '⚠️ Warning: You have 2 minutes and 30 seconds left to answer, or your session will timeout and you\'ll need to start over.',
     timeoutExpired: '⏰ Your session has timed out due to inactivity. Please send "taxi" or "mototaxi" again to start a new ride request.',
-    vehicleType: '🚖 What type of ride do you need?\n\n1️⃣ - Mototaxi 🏍️',
-    vehicleTypeInvalid: '❌ Please select 1 for Mototaxi',
+    vehicleType: '🚖 What type of ride do you need?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Natal/Pipa Transfer 🚗',
+    vehicleTypeInvalid: '❌ Please select 1 for Mototaxi or 2 for Natal/Pipa Transfer',
+    transferDirection: '🗺️ Is this transfer from Natal to Pipa or from Pipa to Natal?\n\n1️⃣ - Natal → Pipa\n2️⃣ - Pipa → Natal',
+    transferDirectionInvalid: '❌ Please select 1 for Natal → Pipa or 2 for Pipa → Natal',
+    pickupDatetime: '📅 What date and time do you need to be picked up?\n\n_Example: 27/03 at 14h or 27/03/2026 14:00_',
     greeting: '🚖 I\'ll help you find a ride - please answer some questions.',
     name: 'What is your name?',
     phone: '📱 What is your phone number? (include country code, e.g., +55 84 9 1234-5678)',
@@ -61,7 +66,23 @@ const TRANSLATIONS = {
     identifier: '👕 What are you wearing or how can the driver identify you? (e.g., blue t-shirt, red cap)',
     waitTime: '⏰ How many minutes are you willing to wait for your ride? (Minimum: 5 minutes)',
     waitTimeInvalid: '❌ Please enter a valid number of at least 5 minutes.',
-    confirmation: (userInfo, vehicleType) => `📋 *Please review your ride information:*
+    confirmation: (userInfo, vehicleType) => vehicleType === 'natal_transfer'
+      ? `📋 *Please review your transfer information:*
+
+*Type:* Natal/Pipa Transfer 🚗
+*Name:* ${userInfo.name}
+*Phone:* ${userInfo.phone}
+*Direction:* ${userInfo.transferDirection === 'natal_to_pipa' ? 'Natal → Pipa' : 'Pipa → Natal'}
+*Pickup Date/Time:* ${userInfo.pickupDatetime}
+*Pickup Location:* ${userInfo.locationText}
+*Destination:* ${userInfo.destination}
+
+Is this information correct?
+
+Reply:
+*CONFIRM* - to send your transfer request
+*CANCEL* - to cancel and start over`
+      : `📋 *Please review your ride information:*
 
 *Vehicle Type:* ${vehicleType === 'mototaxi' ? 'Mototaxi 🏍️' : 'Taxi 🚗'}
 *Name:* ${userInfo.name}
@@ -188,13 +209,17 @@ Your rating helps build trust in our community! You have 24 hours to rate.`,
     ratingReceived: (score) => `✅ Thank you! Your rating of ${score} ⭐ has been recorded.`,
     ratingInvalid: '❌ Please type "rate" followed by a number from 1 to 5 (example: rate 4).',
     ratingExpired: (rideId) => `⏰ The rating period for ride #${rideId} has expired.`,
-    keepalive: '⏳ We are still looking for a driver for your ride. Please wait...'
+    keepalive: '⏳ We are still looking for a driver for your ride. Please wait...',
+    natalTransferExpired: '⏰ Your Natal/Pipa transfer request has expired — the pickup time has passed with no driver accepting. Send "transfer natal" to create a new request.'
   },
   pt: {
     timeoutWarning: '⚠️ Aviso: Você tem 2 minutos e 30 segundos restantes para responder, ou sua sessão expirará e você precisará começar de novo.',
     timeoutExpired: '⏰ Sua sessão expirou por inatividade. Por favor envie "taxi" ou "mototaxi" novamente para iniciar uma nova solicitação de corrida.',
-    vehicleType: '🚖 Que tipo de corrida você precisa?\n\n1️⃣ - Mototaxi 🏍️',
-    vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi',
+    vehicleType: '🚖 Que tipo de corrida você precisa?\n\n1️⃣ - Mototaxi 🏍️\n2️⃣ - Transfer Natal/Pipa 🚗',
+    vehicleTypeInvalid: '❌ Por favor selecione 1 para Mototaxi ou 2 para Transfer Natal/Pipa',
+    transferDirection: '🗺️ O transfer é de Natal para Pipa ou de Pipa para Natal?\n\n1️⃣ - Natal → Pipa\n2️⃣ - Pipa → Natal',
+    transferDirectionInvalid: '❌ Por favor selecione 1 para Natal → Pipa ou 2 para Pipa → Natal',
+    pickupDatetime: '📅 Em que data e horário você precisa ser buscado?\n\n_Exemplo: 27/03 às 14h ou 27/03/2026 14:00_',
     greeting: '🚖 Vou te ajudar a encontrar uma corrida - por favor responda algumas perguntas.',
     name: 'Qual é o seu nome?',
     phone: '📱 Qual é o seu número de telefone? (inclua código do país, ex: +55 84 9 1234-5678)',
@@ -206,7 +231,23 @@ Your rating helps build trust in our community! You have 24 hours to rate.`,
     identifier: '👕 O que você está vestindo ou como o motorista pode te identificar? (ex: camiseta azul, boné vermelho)',
     waitTime: '⏰ Quantos minutos você está disposto a esperar pela sua corrida? (Mínimo: 5 minutos)',
     waitTimeInvalid: '❌ Por favor insira um número válido de pelo menos 5 minutos.',
-    confirmation: (userInfo, vehicleType) => `📋 *Por favor revise suas informações:*
+    confirmation: (userInfo, vehicleType) => vehicleType === 'natal_transfer'
+      ? `📋 *Por favor revise suas informações de transfer:*
+
+*Tipo:* Transfer Natal/Pipa 🚗
+*Nome:* ${userInfo.name}
+*Telefone:* ${userInfo.phone}
+*Direção:* ${userInfo.transferDirection === 'natal_to_pipa' ? 'Natal → Pipa' : 'Pipa → Natal'}
+*Data/Hora Pickup:* ${userInfo.pickupDatetime}
+*Local de Pickup:* ${userInfo.locationText}
+*Destino:* ${userInfo.destination}
+
+As informações estão corretas?
+
+Responda:
+*CONFIRMAR* - para enviar sua solicitação de transfer
+*CANCELAR* - para cancelar e começar de novo`
+      : `📋 *Por favor revise suas informações:*
 
 *Tipo de Veículo:* ${vehicleType === 'mototaxi' ? 'Mototaxi 🏍️' : 'Táxi 🚗'}
 *Nome:* ${userInfo.name}
@@ -334,6 +375,7 @@ Sua avaliação ajuda a construir confiança na nossa comunidade! Você tem 24 h
     ratingInvalid: '❌ Por favor digite "avaliar" seguido de um número de 1 a 5 (exemplo: avaliar 4).',
     ratingExpired: (rideId) => `⏰ O período de avaliação para a corrida #${rideId} expirou.`,
     keepalive: '⏳ Ainda estamos procurando um motorista para sua corrida. Por favor, aguarde...',
+    natalTransferExpired: '⏰ Sua solicitação de transfer Natal/Pipa expirou — o horário de pickup passou sem que nenhum motorista aceitasse. Envie "transfer natal" para fazer uma nova solicitação.',
     driverCpfRequest: (rideId) => `🔐 *Confirmação de Identidade*
 
 Para aceitar a corrida #${rideId}, por favor, confirme informando seu CPF de cadastro do motorista.

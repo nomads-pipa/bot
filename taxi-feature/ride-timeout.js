@@ -105,6 +105,33 @@ async function handleRideTimeout(sock, rideId, userJid, waitTime, language) {
   logger.info(`⏰ Ride ${rideId} expired after ${waitTime} minutes. Awaiting retry decision from user.`);
 }
 
+async function handleNatalTransferTimeout(sock, rideId, userJid, language) {
+  const ride = await prisma.taxiRide.findUnique({ where: { id: rideId } });
+
+  if (!ride) {
+    logger.warn(`⏰ Natal transfer timeout for ride ${rideId} but ride not found`);
+    return;
+  }
+
+  if (ride.status !== 'pending') {
+    logger.info(`⏰ Natal transfer timeout for ride ${rideId} but ride is already ${ride.status}`);
+    return;
+  }
+
+  await prisma.taxiRide.update({
+    where: { id: rideId },
+    data: { status: 'expired', expiredAt: new Date() }
+  });
+
+  activeRideTimeouts.delete(rideId);
+  clearKeepaliveInterval(rideId);
+
+  const t = TRANSLATIONS[language];
+  await sock.sendMessage(userJid, { text: t.natalTransferExpired });
+
+  logger.info(`⏰ Natal transfer ride ${rideId} expired at pickup time.`);
+}
+
 async function restoreRideTimeouts(sock) {
   const now = new Date();
   let restoredCount = 0;
@@ -120,6 +147,34 @@ async function restoreRideTimeouts(sock) {
   const { clearConversationTimeouts } = require('./conversation-timeout');
 
   for (const ride of pendingRides) {
+    // Handle natal_transfer rides separately (expire at pickupAt, not waitTime)
+    if (ride.vehicleType === 'natal_transfer') {
+      if (!ride.pickupAt) continue;
+      const timeRemaining = new Date(ride.pickupAt) - now;
+      if (timeRemaining <= 0) {
+        logger.info(`⏰ Expiring natal_transfer ride ${ride.id} immediately (pickup time passed)`);
+        await prisma.taxiRide.update({
+          where: { id: ride.id },
+          data: { status: 'expired', expiredAt: now }
+        });
+        const t = TRANSLATIONS[ride.language];
+        try {
+          await sock.sendMessage(getPrimaryIdentifier(ride.user), { text: t.natalTransferExpired });
+        } catch (error) {
+          logger.error(`Failed to send natal transfer expiration message:`, error);
+        }
+        expiredCount++;
+      } else {
+        const timeoutId = setTimeout(() => {
+          handleNatalTransferTimeout(sock, ride.id, getPrimaryIdentifier(ride.user), ride.language);
+        }, timeRemaining);
+        activeRideTimeouts.set(ride.id, timeoutId);
+        logger.info(`⏰ Restored natal_transfer timeout for ride ${ride.id} - expires in ${Math.round(timeRemaining / 60000)} minutes`);
+        restoredCount++;
+      }
+      continue;
+    }
+
     const waitTimeMinutes = parseInt(ride.waitTime, 10);
     if (isNaN(waitTimeMinutes) || waitTimeMinutes <= 0) continue;
 
@@ -168,5 +223,6 @@ async function restoreRideTimeouts(sock) {
 
 module.exports = {
   handleRideTimeout,
+  handleNatalTransferTimeout,
   restoreRideTimeouts
 };
