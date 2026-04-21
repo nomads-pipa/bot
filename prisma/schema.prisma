@@ -209,6 +209,15 @@ model ConversationState {
   @@map("conversation_states")
 }
 
+// BotConfig model - generic key-value store for bot configuration
+model BotConfig {
+  key       String   @id
+  value     String   // JSON-encoded
+  updatedAt DateTime @updatedAt
+
+  @@map("bot_config")
+}
+
 // Rating model - tracks ratings given after completed rides
 model Rating {
   id                Int      @id @default(autoincrement())

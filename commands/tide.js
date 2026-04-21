@@ -1,6 +1,7 @@
 const axios = require('axios');
 const moment = require('moment-timezone');
 require('dotenv').config();
+const { getConfig, setConfig } = require('../utils/bot-config');
 
 /**
  * Fetch tide data for Pipa with retry functionality
@@ -85,8 +86,28 @@ async function getTideData(maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1
 async function sendTideDataOnce(sock, chatId, maxRetries = 3, delayMs = 20000, longRetryDelayMs = 1800000) {
     try {
         const tideMessage = await getTideData(maxRetries, delayMs, longRetryDelayMs);
-        await sock.sendMessage(chatId, { text: tideMessage });
+        const sent = await sock.sendMessage(chatId, { text: tideMessage });
         console.log('✅ Tide data sent successfully');
+
+        const prevKey = await getConfig('pinned_tide_message_key');
+        if (prevKey) {
+            try {
+                await sock.sendMessage(chatId, { pin: prevKey, type: 2 });
+                console.log('📌 Previous tide message unpinned');
+            } catch (unpinErr) {
+                console.error('❌ Unpin failed:', unpinErr.message);
+            }
+        }
+
+        try {
+            console.log('📌 Attempting to pin, key:', JSON.stringify(sent.key));
+            const pinResult = await sock.sendMessage(chatId, { pin: sent.key, type: 1 });
+            console.log('📌 Pin result:', JSON.stringify(pinResult?.key));
+            await setConfig('pinned_tide_message_key', sent.key);
+            console.log('📌 New tide message pinned');
+        } catch (pinErr) {
+            console.error('❌ Pin failed:', pinErr.message, pinErr.stack);
+        }
     } catch (error) {
         console.error('❌ Error sending tide data:', error);
     }
