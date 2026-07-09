@@ -169,10 +169,6 @@ After confirmation, the driver is saved in the database and starts receiving rid
 
 Pull requests are welcome! Feel free to submit improvements or bug fixes.
 
-## License
-
-This project is licensed under the MIT License.
-
 ---
 
 ### Contact
