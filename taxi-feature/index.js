@@ -78,7 +78,8 @@ async function processTaxiMessage(sock, message, sender) {
         return false;
       }
 
-      await startRideRequest(sock, sender, taxiRequestCheck.isTestMode);
+      const presetVehicleType = taxiRequestCheck.isDirectTransfer ? 'natal_transfer' : null;
+      await startRideRequest(sock, sender, taxiRequestCheck.isTestMode, presetVehicleType);
       return true;
     }
   }

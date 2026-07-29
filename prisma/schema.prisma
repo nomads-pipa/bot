@@ -209,6 +209,22 @@ model ConversationState {
   @@map("conversation_states")
 }
 
+// TideExtreme model - stores daily tide extremes fetched from Stormglass at midnight,
+// so the 04:00 group message (and the hub website) can read from the DB instead of
+// hitting the Stormglass API directly.
+model TideExtreme {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date // calendar day (America/Sao_Paulo) this extreme belongs to
+  type      String   // 'high' or 'low' (as returned by Stormglass)
+  time      DateTime // UTC timestamp of the extreme
+  height    Float    // meters
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@map("tide_extremes")
+}
+
 // BotConfig model - generic key-value store for bot configuration
 model BotConfig {
   key       String   @id

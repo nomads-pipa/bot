@@ -1,10 +1,33 @@
 const moment = require('moment-timezone');
-const { sendTideDataOnce } = require('../commands/tide');
+const { sendTideDataFromDbOnce, fetchAndSaveTideData } = require('../commands/tide');
 const { sendAstronomyDataOnce } = require('../commands/astro');
 const { sendWaveDataOnce } = require('../commands/wave');
 
 /**
- * Schedule tide data message daily at specified time
+ * Schedule the daily Stormglass fetch + DB save for tide extremes. Runs ahead of
+ * scheduleTideData so the 04:00 group message can read from the DB instead of
+ * calling the Stormglass API directly.
+ * @param {String} time - Time to run the fetch+save (HH:MM format)
+ */
+function scheduleTideSave(time = '00:00') {
+    setInterval(async () => {
+        const now = moment().tz('America/Sao_Paulo');
+        const currentTime = now.format('HH:mm');
+        if (currentTime === time) {
+            console.log("💾 Fetching and saving today's tide data...");
+            try {
+                await fetchAndSaveTideData();
+            } catch (error) {
+                console.error('❌ Error fetching/saving tide data:', error);
+            }
+        }
+    }, 60 * 1000); // Check every minute
+    console.log(`🕒 Tide save scheduler set for ${time} daily`);
+}
+
+/**
+ * Schedule tide data message daily at specified time. Reads today's extremes from the
+ * DB (populated by scheduleTideSave at midnight) instead of calling the Stormglass API.
  * @param {Object} sock - WhatsApp socket connection
  * @param {String} chatId - Chat ID to send the message to
  * @param {String} time - Time to send the message (HH:MM format)
@@ -15,7 +38,7 @@ function scheduleTideData(sock, chatId, time = '04:00') {
         const currentTime = now.format('HH:mm');
         if (currentTime === time) {
             console.log("📅 Sending scheduled tide data...");
-            await sendTideDataOnce(sock, chatId);
+            await sendTideDataFromDbOnce(sock, chatId);
         }
     }, 60 * 1000); // Check every minute
     console.log(`🕒 Tide data scheduler set for ${time} daily`);
@@ -66,14 +89,16 @@ function scheduleWaveData(sock, chatId, time = '19:30') {
  */
 function setupSchedulers(sock, chatId) {
     // Setting all schedulers
+    scheduleTideSave();
     scheduleTideData(sock, chatId);
     scheduleAstronomyData(sock, chatId);
     // scheduleWaveData(sock, chatId, '19:30');
-    
+
     console.log('📆 All schedulers initialized successfully');
 }
 
 module.exports = {
+    scheduleTideSave,
     scheduleTideData,
     scheduleAstronomyData,
     scheduleWaveData,

@@ -28,16 +28,18 @@ function isJid(identifier) {
 
 function isTaxiRequest(message) {
   const lowerMsg = message.toLowerCase();
+  const isDirectTransfer = lowerMsg.includes('transfer') || lowerMsg.includes('transferência');
   const isRequest = lowerMsg.includes('mototaxi') || lowerMsg.includes('mototáxi') ||
                     lowerMsg.includes('taxi') || lowerMsg.includes('táxi') ||
-                    lowerMsg.includes('transfer natal') || lowerMsg.includes('transfer pipa') ||
-                    lowerMsg.includes('natal transfer') || lowerMsg.includes('pipa transfer') ||
-                    lowerMsg.includes('transferência natal') || lowerMsg.includes('transferência pipa');
+                    isDirectTransfer;
   const isTestMode = lowerMsg.includes('test');
 
   return {
     isRequest,
-    isTestMode
+    isTestMode,
+    // True when the message itself already signals a Natal/Pipa transfer (e.g. "natal transfer"),
+    // so the flow can skip the mototaxi-vs-transfer submenu and go straight into the transfer flow.
+    isDirectTransfer
   };
 }
 

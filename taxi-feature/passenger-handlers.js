@@ -30,7 +30,7 @@ function tryParsePickupDate(text) {
 
 const logger = createFileLogger();
 
-async function startRideRequest(sock, sender, testMode = false) {
+async function startRideRequest(sock, sender, testMode = false, presetVehicleType = null) {
   // Clear any lingering timeouts for all identifiers (JID and LID) associated with this user
   await clearAllUserTimeouts(sender);
 
@@ -49,7 +49,7 @@ async function startRideRequest(sock, sender, testMode = false) {
         phone: existingUser.phone
       },
       language: null,
-      vehicleType: null,
+      vehicleType: presetVehicleType,
       rideId: null,
       skipUserInfo: true, // Flag to skip name/phone questions
       testMode: testMode
@@ -75,7 +75,7 @@ Please select your language / Por favor selecione seu idioma:
       state: STATES.AWAITING_LANGUAGE,
       userInfo: {},
       language: null,
-      vehicleType: null,
+      vehicleType: presetVehicleType,
       rideId: null,
       skipUserInfo: false,
       testMode: testMode
@@ -96,6 +96,36 @@ Please select your language / Por favor selecione seu idioma:
   }
 
   resetConversationTimeout(sock, sender, 'en');
+}
+
+/**
+ * Runs once the conversation's vehicleType is known (either picked from the submenu, or preset
+ * by a direct-transfer trigger message) — creates the ride record and asks the next question.
+ */
+async function proceedAfterVehicleType(sock, sender, conversation) {
+  const t = TRANSLATIONS[conversation.language];
+
+  const initialRide = await createInitialRide(sender, conversation.vehicleType, conversation.language, conversation.userInfo);
+  conversation.rideId = initialRide.id;
+
+  if (conversation.skipUserInfo) {
+    // Skip directly to first relevant question
+    const nextState = conversation.vehicleType === 'natal_transfer'
+      ? STATES.AWAITING_TRANSFER_DIRECTION
+      : STATES.AWAITING_LOCATION_TEXT;
+    conversation.state = nextState;
+    await saveConversationState(sender, conversation);
+    await sock.sendMessage(sender, { text: t.greeting });
+    await sock.sendMessage(sender, {
+      text: nextState === STATES.AWAITING_TRANSFER_DIRECTION ? t.transferDirection : t.locationText
+    });
+  } else {
+    // Ask for name as usual
+    conversation.state = STATES.AWAITING_NAME;
+    await saveConversationState(sender, conversation);
+    await sock.sendMessage(sender, { text: t.greeting });
+    await sock.sendMessage(sender, { text: t.name });
+  }
 }
 
 async function processTaxiConversation(sock, message, sender) {
@@ -129,6 +159,13 @@ async function processTaxiConversation(sock, message, sender) {
         return true;
       }
 
+      if (conversation.vehicleType) {
+        // Preset by a direct-transfer trigger message — skip the mototaxi-vs-transfer submenu
+        await saveConversationState(sender, conversation);
+        await proceedAfterVehicleType(sock, sender, conversation);
+        break;
+      }
+
       conversation.state = STATES.AWAITING_VEHICLE_TYPE;
       await saveConversationState(sender, conversation);
 
@@ -150,29 +187,7 @@ async function processTaxiConversation(sock, message, sender) {
         return true;
       }
 
-      // Create the ride record now that we have language and vehicle type
-      const initialRide = await createInitialRide(sender, conversation.vehicleType, conversation.language, conversation.userInfo);
-      conversation.rideId = initialRide.id;
-
-      // Check if we should skip user info questions
-      if (conversation.skipUserInfo) {
-        // Skip directly to first relevant question
-        const nextState = conversation.vehicleType === 'natal_transfer'
-          ? STATES.AWAITING_TRANSFER_DIRECTION
-          : STATES.AWAITING_LOCATION_TEXT;
-        conversation.state = nextState;
-        await saveConversationState(sender, conversation);
-        await sock.sendMessage(sender, { text: t.greeting });
-        await sock.sendMessage(sender, {
-          text: nextState === STATES.AWAITING_TRANSFER_DIRECTION ? t.transferDirection : t.locationText
-        });
-      } else {
-        // Ask for name as usual
-        conversation.state = STATES.AWAITING_NAME;
-        await saveConversationState(sender, conversation);
-        await sock.sendMessage(sender, { text: t.greeting });
-        await sock.sendMessage(sender, { text: t.name });
-      }
+      await proceedAfterVehicleType(sock, sender, conversation);
       break;
 
     case STATES.AWAITING_NAME:
